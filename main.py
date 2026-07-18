@@ -162,11 +162,35 @@ if page == "お客様向け：予約画面":
 # ==========================================
 elif page == "スタッフ向け：受付（チェックイン）":
     st.title("QRコード受付（チェックイン）システム")
-    st.write("QRコードをスキャンするか、手入力で予約IDを入力してください。")
+    st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
-    qr_input = st.text_input("QRコードデータ（例: CHECKIN_ID:1）または予約ID（例: 1）を入力")
+    # --- カメラで撮影して読み取る ---
+    picture = st.camera_input("QRコードを撮影して読み取る")
+    detected_id_str = ""
     
-    if st.button("受付を行う"):
+    if picture is not None:
+        import numpy as np
+        import cv2
+        
+        # 画像データをOpenCV形式に変換して読み取る
+        file_bytes = np.asarray(bytearray(picture.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        
+        # QRコードのデコード処理
+        detector = cv2.QRCodeDetector()
+        data, bbox, straight_qrcode = detector.detectAndDecode(img)
+        
+        if data:
+            st.success(f"QRコードを読み取りました！")
+            detected_id_str = data
+        else:
+            st.error("QRコードが見つかりません。もう少し近づけて撮影するか、ピントを合わせてください。（または下の手入力をご利用ください）")
+
+    # --- 予約IDの手入力・受付実行 ---
+    st.markdown("---")
+    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", value=detected_id_str)
+    
+    if st.button("受付を行う", type="primary"):
         if not qr_input:
             st.error("データが入力されていません。")
         else:

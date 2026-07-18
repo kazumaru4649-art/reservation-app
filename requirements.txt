@@ -3,3 +3,5 @@ pandas
 qrcode
 Pillow
 st-gsheets-connection
+opencv-python-headless
+numpy
