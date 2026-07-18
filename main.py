@@ -166,9 +166,9 @@ elif page == "スタッフ向け：受付（チェックイン）":
     
     # --- カメラで撮影して読み取る ---
     detected_id_str = ""
-    if st.checkbox("📸 カメラを起動してQRコードを読み取る"):
+    if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
         st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
-        picture = st.camera_input("QRコードを撮影")
+        picture = st.camera_input("QRコードを撮影", key="camera_widget")
         
         if picture is not None:
             import numpy as np
@@ -190,7 +190,7 @@ elif page == "スタッフ向け：受付（チェックイン）":
 
     # --- 予約IDの手入力・受付実行 ---
     st.markdown("---")
-    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", value=detected_id_str)
+    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", value=detected_id_str, key="qr_input_field")
     
     if st.button("受付を行う", type="primary"):
         if not qr_input:
@@ -235,6 +235,15 @@ elif page == "スタッフ向け：受付（チェックイン）":
                         conn.update(worksheet="予約リスト", data=df_reservations)
                         
                         st.success(f"受付完了：{name}様 ➡️ {seat_display}番席へご案内してください")
+                        
+                        st.markdown("---")
+                        if st.button("次の人の受付を行う（画面をリセット）"):
+                            # カメラの写真と入力欄をクリアして再読み込み
+                            if "camera_widget" in st.session_state:
+                                del st.session_state["camera_widget"]
+                            if "qr_input_field" in st.session_state:
+                                del st.session_state["qr_input_field"]
+                            st.rerun()
                         
             except Exception as e:
                 st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
