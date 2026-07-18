@@ -164,27 +164,10 @@ elif page == "スタッフ向け：受付（チェックイン）":
     st.title("QRコード受付（チェックイン）システム")
     st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
-    # --- カメラで自動読み取り ---
-    if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
-        st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
-        
-        try:
-            from streamlit_qrcode_scanner import qrcode_scanner
-            # カメラ映像をリアルタイムで表示し、QRを自動検出する
-            qr_code = qrcode_scanner(key='qrcode_scanner_widget')
-            
-            if qr_code:
-                st.success("QRコードを読み取りました！下の「受付を行う」ボタンを押してください。")
-                # 読み取った値を直接テキストボックスにセットする
-                st.session_state["qr_input_field"] = qr_code
-        except Exception as e:
-            st.error("カメラの起動に失敗しました。")
-
-    # --- 予約IDの手入力・受付実行 ---
-    st.markdown("---")
-    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", key="qr_input_field")
+    # --- 予約IDの手入力・受付実行（上に移動） ---
+    qr_input = st.text_input("予約ID（またはQRデータ）を入力", key="qr_input_field")
     
-    if st.button("受付を行う", type="primary"):
+    if st.button("受付を行う", type="primary", use_container_width=True):
         if not qr_input:
             st.error("予約IDが入力されていません。（空欄です）")
         else:
@@ -239,6 +222,26 @@ elif page == "スタッフ向け：受付（チェックイン）":
                         
             except Exception as e:
                 st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
+
+    st.markdown("---")
+    
+    # --- カメラで自動読み取り（下に移動） ---
+    if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
+        st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
+        
+        try:
+            from streamlit_qrcode_scanner import qrcode_scanner
+            # カメラ映像をリアルタイムで表示し、QRを自動検出する
+            qr_code = qrcode_scanner(key='qrcode_scanner_widget')
+            
+            if qr_code:
+                st.success("QRコードを読み取りました！上の「受付を行う」ボタンを押してください。")
+                # 読み取った値を直接テキストボックスにセットする
+                if st.session_state.get("qr_input_field") != qr_code:
+                    st.session_state["qr_input_field"] = qr_code
+                    st.rerun()
+        except Exception as e:
+            st.error("カメラの起動に失敗しました。")
 
     # --- データリセット機能（管理者専用） ---
     st.markdown("---")
