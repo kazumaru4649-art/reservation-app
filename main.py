@@ -4,8 +4,41 @@ import qrcode
 from PIL import Image
 import io
 from streamlit_gsheets import GSheetsConnection
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 
 st.set_page_config(page_title="座席管理システム", layout="centered")
+
+def send_qr_email(to_email, name, seat, new_id, qr_bytes):
+    try:
+        if "email" not in st.secrets:
+            return False
+        sender_email = st.secrets["email"]["sender_email"]
+        app_password = st.secrets["email"]["app_password"]
+        
+        msg = MIMEMultipart()
+        msg['Subject'] = '【自動座席割り当て予約システム】ご予約完了のお知らせ'
+        msg['From'] = sender_email
+        msg['To'] = to_email
+
+        body = f"{name} 様\n\nご予約ありがとうございます。\nお席は 【 {seat} 番 】 に割り当てられました。\n\n当日は添付のQRコードを受付にてご提示ください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
+        msg.attach(MIMEText(body, 'plain'))
+        
+        img = MIMEImage(qr_bytes)
+        img.add_header('Content-Disposition', 'attachment', filename=f"qrcode_{new_id}.png")
+        msg.attach(img)
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, app_password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False
 
 # --- Google Sheets 接続設定 ---
 # 実行前に .streamlit/secrets.toml の設定と、スプレッドシートの共有設定が必要です。
@@ -92,11 +125,15 @@ if page == "お客様向け：予約画面":
                     img.save(buf, format="PNG")
                     byte_im = buf.getvalue()
                     
+                    # メール送信
+                    email_sent = send_qr_email(email, name, assigned_seat, new_id, byte_im)
+                    
                     # セッションステートに保存
                     st.session_state["reservation_success"] = {
                         "new_id": new_id,
                         "assigned_seat": assigned_seat,
-                        "byte_im": byte_im
+                        "byte_im": byte_im,
+                        "email_sent": email_sent
                     }
                     
             except Exception as e:
@@ -106,6 +143,11 @@ if page == "お客様向け：予約画面":
     if "reservation_success" in st.session_state:
         res = st.session_state["reservation_success"]
         st.success(f"予約が完了しました。予約IDは {res['new_id']} 番、割り当てられた席は {res['assigned_seat']} 番です。")
+        if res.get("email_sent"):
+            st.info("ご入力いただいたメールアドレス宛に、QRコードを添付した予約完了メールを送信しました。")
+        else:
+            st.warning("予約は完了しましたが、メール設定が未完了のためメールは送信されませんでした。下のボタンからQRコードを保存してください。")
+            
         st.write("当日は以下のQRコードを受付でご提示ください。")
         st.image(res['byte_im'], caption="チェックイン用QRコード")
         st.download_button(label="QRコード画像を保存", data=res['byte_im'], file_name=f"qrcode_{res['new_id']}.png", mime="image/png")
