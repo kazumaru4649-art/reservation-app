@@ -19,7 +19,7 @@ def send_qr_email(to_email, name, seat, new_id, qr_bytes, num_people):
         app_password = st.secrets["email"]["app_password"]
         
         msg = MIMEMultipart()
-        msg['Subject'] = '【自動座席割り当て予約システム】ご予約完了のお知らせ'
+        msg['Subject'] = '【先行座席予約】ご予約完了のお知らせ'
         msg['From'] = sender_email
         msg['To'] = to_email
 
@@ -61,7 +61,7 @@ page = st.sidebar.radio("ページを選択", ["お客様向け：予約画面",
 # 予約画面（お客様向け）
 # ==========================================
 if page == "お客様向け：予約画面":
-    st.title("自動座席割り当て予約システム")
+    st.title("先行座席予約")
     
     # リアルタイムの空き状況を取得
     try:
