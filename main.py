@@ -213,9 +213,8 @@ elif page == "スタッフ向け：受付（チェックイン）":
         st.warning("スプレッドシートの予約データをすべて消去して初期状態に戻します。")
         reset_pass = st.text_input("管理者パスワードを入力してください", type="password")
         
-        # 簡易的なパスワード設定（例として9999）
-        if reset_pass == "9999":
-            if st.button("全データを本当にリセットする", type="primary"):
+        if st.button("全データを本当にリセットする", type="primary"):
+            if reset_pass == "4649":
                 try:
                     conn, df_seats, df_reservations = get_data()
                     
@@ -232,3 +231,5 @@ elif page == "スタッフ向け：受付（チェックイン）":
                     st.success("すべての予約データをリセットしました！")
                 except Exception as e:
                     st.error(f"リセットに失敗しました: {e}")
+            else:
+                st.error("パスワードが間違っています。")
