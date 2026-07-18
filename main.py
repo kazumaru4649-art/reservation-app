@@ -151,6 +151,11 @@ if page == "お客様向け：予約画面":
         st.write("当日は以下のQRコードを受付でご提示ください。")
         st.image(res['byte_im'], caption="チェックイン用QRコード")
         st.download_button(label="QRコード画像を保存", data=res['byte_im'], file_name=f"qrcode_{res['new_id']}.png", mime="image/png")
+        
+        st.markdown("---")
+        if st.button("続けて別の予約を行う（画面をリセット）"):
+            del st.session_state["reservation_success"]
+            st.rerun()
 
 # ==========================================
 # 受付画面（スタッフ向け）
