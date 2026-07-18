@@ -165,7 +165,6 @@ elif page == "スタッフ向け：受付（チェックイン）":
     st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
     # --- カメラで自動読み取り ---
-    detected_id_str = ""
     if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
         st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
         
@@ -176,17 +175,18 @@ elif page == "スタッフ向け：受付（チェックイン）":
             
             if qr_code:
                 st.success("QRコードを読み取りました！下の「受付を行う」ボタンを押してください。")
-                detected_id_str = qr_code
+                # 読み取った値を直接テキストボックスにセットする
+                st.session_state["qr_input_field"] = qr_code
         except Exception as e:
             st.error("カメラの起動に失敗しました。")
 
     # --- 予約IDの手入力・受付実行 ---
     st.markdown("---")
-    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", value=detected_id_str, key="qr_input_field")
+    qr_input = st.text_input("QRコードデータ または 予約ID（例: 1）を入力", key="qr_input_field")
     
     if st.button("受付を行う", type="primary"):
         if not qr_input:
-            st.error("データが入力されていません。")
+            st.error("予約IDが入力されていません。（空欄です）")
         else:
             try:
                 conn, df_seats, df_reservations = get_data()
@@ -204,7 +204,7 @@ elif page == "スタッフ向け：受付（チェックイン）":
                 match_idx = df_reservations.index[df_reservations['予約ID'] == res_id].tolist()
                 
                 if not match_idx:
-                    st.error("該当する予約データが見つかりません。")
+                    st.error("予約データが見つかりません。（データが存在しないか、IDが間違っています）")
                 else:
                     idx = match_idx[0]
                     status = df_reservations.at[idx, 'ステータス']
@@ -212,7 +212,7 @@ elif page == "スタッフ向け：受付（チェックイン）":
                     seat = df_reservations.at[idx, '席番号']
                     
                     if status == "来店済み":
-                        st.warning("既に受付済みです。")
+                        st.warning("⚠️ 既に受付済みのQRコード（お客様）です！")
                     else:
                         # ステータスを更新
                         df_reservations.at[idx, 'ステータス'] = "来店済み"
