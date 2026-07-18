@@ -162,12 +162,38 @@ if page == "お客様向け：予約画面":
 # ==========================================
 elif page == "スタッフ向け：受付（チェックイン）":
     st.title("QRコード受付（チェックイン）システム")
-    st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
-    # --- 予約IDの手入力・受付実行（上に移動） ---
-    qr_input = st.text_input("予約ID（またはQRデータ）を入力", key="qr_input_field")
+    # --- カメラで自動読み取り（一番上に配置） ---
+    st.write("▼ カメラでQRコードをかざしてください（自動で受付されます）")
+    if st.checkbox("📸 カメラを起動する", value=True, key="camera_toggle"):
+        st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マークからカメラを「許可」に変更してください。")
+        try:
+            from streamlit_qrcode_scanner import qrcode_scanner
+            # カメラ映像をリアルタイムで表示し、QRを自動検出する
+            qr_code = qrcode_scanner(key='qrcode_scanner_widget')
+            
+            if qr_code:
+                # 読み取った値が現在の入力欄と違う場合のみ、自動実行フラグを立てて更新
+                if st.session_state.get("qr_input_field") != qr_code:
+                    st.session_state["qr_input_field"] = qr_code
+                    st.session_state["auto_submit"] = True
+                    st.rerun()
+        except Exception as e:
+            pass # 余計なエラー表示を隠す
+
+    st.markdown("---")
     
-    if st.button("受付を行う", type="primary", use_container_width=True):
+    # --- 受付結果の表示 ＆ 手入力エリア（下に配置） ---
+    qr_input = st.text_input("手動検索用：予約IDを入力（※カメラで読み取ると自動入力されます）", key="qr_input_field")
+    
+    manual_submit = st.button("手動で受付を行う", type="primary", use_container_width=True)
+    auto_submit = st.session_state.get("auto_submit", False)
+    
+    # 手動ボタンが押されたか、またはカメラで自動読み取りされた場合
+    if manual_submit or auto_submit:
+        # 自動実行フラグをリセット
+        st.session_state["auto_submit"] = False
+        
         if not qr_input:
             st.error("予約IDが入力されていません。（空欄です）")
         else:
@@ -212,36 +238,16 @@ elif page == "スタッフ向け：受付（チェックイン）":
                         st.success(f"受付完了：{name}様 ➡️ {seat_display}番席へご案内してください")
                         
                         st.markdown("---")
-                        if st.button("次の人の受付を行う（画面をリセット）"):
+                        if st.button("🔄 次の人の受付を行う（画面をリセット）", use_container_width=True):
                             # カメラの写真と入力欄をクリアして再読み込み
-                            if "camera_widget" in st.session_state:
-                                del st.session_state["camera_widget"]
+                            if "qrcode_scanner_widget" in st.session_state:
+                                del st.session_state["qrcode_scanner_widget"]
                             if "qr_input_field" in st.session_state:
                                 del st.session_state["qr_input_field"]
                             st.rerun()
                         
             except Exception as e:
                 st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
-
-    st.markdown("---")
-    
-    # --- カメラで自動読み取り（下に移動） ---
-    if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
-        st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
-        
-        try:
-            from streamlit_qrcode_scanner import qrcode_scanner
-            # カメラ映像をリアルタイムで表示し、QRを自動検出する
-            qr_code = qrcode_scanner(key='qrcode_scanner_widget')
-            
-            if qr_code:
-                st.success("QRコードを読み取りました！上の「受付を行う」ボタンを押してください。")
-                # 読み取った値を直接テキストボックスにセットする
-                if st.session_state.get("qr_input_field") != qr_code:
-                    st.session_state["qr_input_field"] = qr_code
-                    st.rerun()
-        except Exception as e:
-            st.error("カメラの起動に失敗しました。")
 
     # --- データリセット機能（管理者専用） ---
     st.markdown("---")
