@@ -89,19 +89,17 @@ if page == "お客様向け：予約画面":
     st.write("以下のフォームに必要事項を入力して予約を行ってください。")
     
     with st.form("reservation_form"):
-        name = st.text_input("お名前（代表者）")
-        email = st.text_input("メールアドレス")
+        name = st.text_input("お名前代表（ハンドルネーム可）")
+        email = st.text_input("メールアドレス（もし来てないようでしたらもう一度ご確認お願いします）")
         
         # 人数入力と空き状況を横並びにする
         col1, col2 = st.columns([1, 1])
         with col1:
-            num_people = st.number_input("ご予約人数（名様）", min_value=1, max_value=4, value=1, step=1)
+            num_people = st.number_input("ご予約人数（最高は４名まで、それ以上それ以下は相席になります）", min_value=1, max_value=4, value=1, step=1)
         with col2:
             st.write("") # 高さ調整
             st.write("") # 高さ調整
             st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
-            
-        st.caption("※最大４名（それ以上又はそれ以下でも相席になります）")
         
         # 満席の場合は予約ボタンを押せなくするか、エラーを出すか（現状は押した後にエラーが出ます）
         submitted = st.form_submit_button("予約する")
