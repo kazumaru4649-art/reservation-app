@@ -164,29 +164,21 @@ elif page == "スタッフ向け：受付（チェックイン）":
     st.title("QRコード受付（チェックイン）システム")
     st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
-    # --- カメラで撮影して読み取る ---
+    # --- カメラで自動読み取り ---
     detected_id_str = ""
     if st.checkbox("📸 カメラを起動してQRコードを読み取る", key="camera_toggle"):
         st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
-        picture = st.camera_input("QRコードを撮影", key="camera_widget")
         
-        if picture is not None:
-            import numpy as np
-            import cv2
+        try:
+            from streamlit_qrcode_scanner import qrcode_scanner
+            # カメラ映像をリアルタイムで表示し、QRを自動検出する
+            qr_code = qrcode_scanner(key='qrcode_scanner_widget')
             
-            # 画像データをOpenCV形式に変換して読み取る
-            file_bytes = np.asarray(bytearray(picture.read()), dtype=np.uint8)
-            img = cv2.imdecode(file_bytes, 1)
-            
-            # QRコードのデコード処理
-            detector = cv2.QRCodeDetector()
-            data, bbox, straight_qrcode = detector.detectAndDecode(img)
-            
-            if data:
-                st.success(f"QRコードを読み取りました！")
-                detected_id_str = data
-            else:
-                st.error("QRコードが見つかりません。もう少し近づけて撮影するか、ピントを合わせてください。（または下の手入力をご利用ください）")
+            if qr_code:
+                st.success("QRコードを読み取りました！下の「受付を行う」ボタンを押してください。")
+                detected_id_str = qr_code
+        except Exception as e:
+            st.error("カメラの起動に失敗しました。")
 
     # --- 予約IDの手入力・受付実行 ---
     st.markdown("---")
