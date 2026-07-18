@@ -165,26 +165,28 @@ elif page == "スタッフ向け：受付（チェックイン）":
     st.write("お客様のQRコードをカメラで撮影するか、予約IDを手入力してください。")
     
     # --- カメラで撮影して読み取る ---
-    picture = st.camera_input("QRコードを撮影して読み取る")
     detected_id_str = ""
-    
-    if picture is not None:
-        import numpy as np
-        import cv2
+    if st.checkbox("📸 カメラを起動してQRコードを読み取る"):
+        st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マーク（サイト設定）から、カメラの権限を「許可」に変更してください。")
+        picture = st.camera_input("QRコードを撮影")
         
-        # 画像データをOpenCV形式に変換して読み取る
-        file_bytes = np.asarray(bytearray(picture.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, 1)
-        
-        # QRコードのデコード処理
-        detector = cv2.QRCodeDetector()
-        data, bbox, straight_qrcode = detector.detectAndDecode(img)
-        
-        if data:
-            st.success(f"QRコードを読み取りました！")
-            detected_id_str = data
-        else:
-            st.error("QRコードが見つかりません。もう少し近づけて撮影するか、ピントを合わせてください。（または下の手入力をご利用ください）")
+        if picture is not None:
+            import numpy as np
+            import cv2
+            
+            # 画像データをOpenCV形式に変換して読み取る
+            file_bytes = np.asarray(bytearray(picture.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, 1)
+            
+            # QRコードのデコード処理
+            detector = cv2.QRCodeDetector()
+            data, bbox, straight_qrcode = detector.detectAndDecode(img)
+            
+            if data:
+                st.success(f"QRコードを読み取りました！")
+                detected_id_str = data
+            else:
+                st.error("QRコードが見つかりません。もう少し近づけて撮影するか、ピントを合わせてください。（または下の手入力をご利用ください）")
 
     # --- 予約IDの手入力・受付実行 ---
     st.markdown("---")
