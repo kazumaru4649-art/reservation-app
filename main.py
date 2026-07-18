@@ -62,14 +62,48 @@ page = st.sidebar.radio("ページを選択", ["お客様向け：予約画面",
 # ==========================================
 if page == "お客様向け：予約画面":
     st.title("自動座席割り当て予約システム")
+    
+    # リアルタイムの空き状況を取得
+    try:
+        conn, df_seats, df_reservations = get_data()
+        total_capacity = pd.to_numeric(df_seats["最大定員"], errors="coerce").fillna(0)
+        current_booked = pd.to_numeric(df_seats["現在の予約人数"], errors="coerce").fillna(0)
+        total_available = int((total_capacity - current_booked).sum())
+        
+        if total_available >= 50:
+            status_text = "〇"
+            status_color = "#28a745" # 緑
+        elif total_available >= 30:
+            status_text = "△"
+            status_color = "#ffc107" # 黄
+        elif total_available > 0:
+            status_text = "残り僅か！"
+            status_color = "#dc3545" # 赤
+        else:
+            status_text = "✖"
+            status_color = "#6c757d" # グレー
+    except:
+        status_text = "確認中"
+        status_color = "black"
+
     st.write("以下のフォームに必要事項を入力して予約を行ってください。")
     
     with st.form("reservation_form"):
         name = st.text_input("お名前（代表者）")
         email = st.text_input("メールアドレス")
-        # 自由に入力・変更できる「数値入力ボックス」に変更
-        num_people = st.number_input("ご予約人数（名様）", min_value=1, max_value=4, value=1, step=1)
         
+        # 人数入力と空き状況を横並びにする
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            num_people = st.number_input("ご予約人数（名様）", min_value=1, max_value=4, value=1, step=1)
+        with col2:
+            st.write("") # 高さ調整
+            st.write("") # 高さ調整
+            st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
+            
+        st.caption("※最大４名（それ以上又はそれ以下でも相席になります）")
+        
+        # 満席の場合は予約ボタンを押せなくするか、エラーを出すか（現状は押した後にエラーが出ます）
         submitted = st.form_submit_button("予約する")
 
     if submitted:
