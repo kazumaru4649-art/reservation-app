@@ -37,68 +37,78 @@ if page == "お客様向け：予約画面":
         num_people = st.selectbox("ご予約人数", options=[1, 2, 3, 4])
         
         submitted = st.form_submit_button("予約する")
-        
-        if submitted:
-            if not name or not email:
-                st.error("お名前とメールアドレスを入力してください。")
-            else:
-                try:
-                    conn, df_seats, df_reservations = get_data()
-                    
-                    assigned_seat = None
-                    
-                    # 【重要】相席ロジック：空き枠がある席を上から探し、相席で無駄なく埋める
-                    for index, row in df_seats.iterrows():
-                        available_space = int(row["最大定員"]) - int(row["現在の予約人数"])
-                        if available_space >= num_people:
-                            assigned_seat = int(row["席番号"])
-                            df_seats.at[index, "現在の予約人数"] = int(row["現在の予約人数"]) + num_people
-                            break
-                            
-                    if assigned_seat is None:
-                        st.error("満席エラー：現在ご案内できる空き座席がありません。")
+
+    if submitted:
+        if not name or not email:
+            st.error("お名前とメールアドレスを入力してください。")
+        else:
+            try:
+                conn, df_seats, df_reservations = get_data()
+                
+                assigned_seat = None
+                
+                # 【重要】相席ロジック：空き枠がある席を上から探し、相席で無駄なく埋める
+                for index, row in df_seats.iterrows():
+                    available_space = int(row["最大定員"]) - int(row["現在の予約人数"])
+                    if available_space >= num_people:
+                        assigned_seat = int(row["席番号"])
+                        df_seats.at[index, "現在の予約人数"] = int(row["現在の予約人数"]) + num_people
+                        break
+                        
+                if assigned_seat is None:
+                    st.error("満席エラー：現在ご案内できる空き座席がありません。")
+                else:
+                    # 予約IDの採番
+                    if len(df_reservations) == 0:
+                        new_id = 1
                     else:
-                        # 予約IDの採番
-                        if len(df_reservations) == 0:
-                            new_id = 1
-                        else:
-                            # 既存の最大IDに+1する
-                            df_reservations["予約ID"] = pd.to_numeric(df_reservations["予約ID"], errors="coerce").fillna(0)
-                            new_id = int(df_reservations["予約ID"].max()) + 1
-                            
-                        new_reservation = pd.DataFrame([{
-                            "予約ID": new_id,
-                            "お名前": name,
-                            "メールアドレス": email,
-                            "予約人数": num_people,
-                            "席番号": assigned_seat,
-                            "ステータス": "予約確定"
-                        }])
+                        # 既存の最大IDに+1する
+                        df_reservations["予約ID"] = pd.to_numeric(df_reservations["予約ID"], errors="coerce").fillna(0)
+                        new_id = int(df_reservations["予約ID"].max()) + 1
                         
-                        df_reservations = pd.concat([df_reservations, new_reservation], ignore_index=True)
-                        
-                        # Googleスプレッドシートを更新
-                        conn.update(worksheet="座席状況", data=df_seats)
-                        conn.update(worksheet="予約リスト", data=df_reservations)
-                        
-                        # QRコードの生成
-                        qr_data = f"CHECKIN_ID:{new_id}"
-                        qr = qrcode.QRCode(version=1, box_size=10, border=4)
-                        qr.add_data(qr_data)
-                        qr.make(fit=True)
-                        img = qr.make_image(fill_color="black", back_color="white")
-                        
-                        buf = io.BytesIO()
-                        img.save(buf, format="PNG")
-                        byte_im = buf.getvalue()
-                        
-                        st.success(f"予約が完了しました。予約IDは {new_id} 番、割り当てられた席は {assigned_seat} 番です。")
-                        st.write("当日は以下のQRコードを受付でご提示ください。")
-                        st.image(byte_im, caption="チェックイン用QRコード")
-                        st.download_button(label="QRコード画像を保存", data=byte_im, file_name=f"qrcode_{new_id}.png", mime="image/png")
-                        
-                except Exception as e:
-                    st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
+                    new_reservation = pd.DataFrame([{
+                        "予約ID": new_id,
+                        "お名前": name,
+                        "メールアドレス": email,
+                        "予約人数": num_people,
+                        "席番号": assigned_seat,
+                        "ステータス": "予約確定"
+                    }])
+                    
+                    df_reservations = pd.concat([df_reservations, new_reservation], ignore_index=True)
+                    
+                    # Googleスプレッドシートを更新
+                    conn.update(worksheet="座席状況", data=df_seats)
+                    conn.update(worksheet="予約リスト", data=df_reservations)
+                    
+                    # QRコードの生成
+                    qr_data = f"CHECKIN_ID:{new_id}"
+                    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                    qr.add_data(qr_data)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    byte_im = buf.getvalue()
+                    
+                    # セッションステートに保存
+                    st.session_state["reservation_success"] = {
+                        "new_id": new_id,
+                        "assigned_seat": assigned_seat,
+                        "byte_im": byte_im
+                    }
+                    
+            except Exception as e:
+                st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
+
+    # フォームの外で結果とダウンロードボタンを表示
+    if "reservation_success" in st.session_state:
+        res = st.session_state["reservation_success"]
+        st.success(f"予約が完了しました。予約IDは {res['new_id']} 番、割り当てられた席は {res['assigned_seat']} 番です。")
+        st.write("当日は以下のQRコードを受付でご提示ください。")
+        st.image(res['byte_im'], caption="チェックイン用QRコード")
+        st.download_button(label="QRコード画像を保存", data=res['byte_im'], file_name=f"qrcode_{res['new_id']}.png", mime="image/png")
 
 # ==========================================
 # 受付画面（スタッフ向け）
