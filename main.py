@@ -11,7 +11,7 @@ from email.mime.image import MIMEImage
 
 st.set_page_config(page_title="座席管理システム", layout="centered")
 
-def send_qr_email(to_email, name, seat, new_id, qr_bytes):
+def send_qr_email(to_email, name, seat, new_id, qr_bytes, num_people):
     try:
         if "email" not in st.secrets:
             return False
@@ -23,7 +23,7 @@ def send_qr_email(to_email, name, seat, new_id, qr_bytes):
         msg['From'] = sender_email
         msg['To'] = to_email
 
-        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n・予約ID：{new_id}\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約ID」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
+        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n・予約ID：{new_id}\n・人数：{num_people}名様\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約ID」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
         msg.attach(MIMEText(body, 'plain'))
         
         img = MIMEImage(qr_bytes)
@@ -67,7 +67,8 @@ if page == "お客様向け：予約画面":
     with st.form("reservation_form"):
         name = st.text_input("お名前（代表者）")
         email = st.text_input("メールアドレス")
-        num_people = st.selectbox("ご予約人数", options=[1, 2, 3, 4])
+        # 自由に入力・変更できる「数値入力ボックス」に変更
+        num_people = st.number_input("ご予約人数（名様）", min_value=1, max_value=4, value=1, step=1)
         
         submitted = st.form_submit_button("予約する")
 
@@ -125,8 +126,8 @@ if page == "お客様向け：予約画面":
                     img.save(buf, format="PNG")
                     byte_im = buf.getvalue()
                     
-                    # メール送信
-                    email_sent = send_qr_email(email, name, assigned_seat, new_id, byte_im)
+                    # メール送信（人数の情報も追加）
+                    email_sent = send_qr_email(email, name, assigned_seat, new_id, byte_im, num_people)
                     
                     # セッションステートに保存
                     st.session_state["reservation_success"] = {
