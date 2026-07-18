@@ -23,7 +23,7 @@ def send_qr_email(to_email, name, seat, new_id, qr_bytes):
         msg['From'] = sender_email
         msg['To'] = to_email
 
-        body = f"{name} 様\n\nご予約ありがとうございます。\nお席は 【 {seat} 番 】 に割り当てられました。\n\n当日は添付のQRコードを受付にてご提示ください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
+        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n・予約ID：{new_id}\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約ID」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
         msg.attach(MIMEText(body, 'plain'))
         
         img = MIMEImage(qr_bytes)
