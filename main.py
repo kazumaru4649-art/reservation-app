@@ -225,10 +225,16 @@ elif page == "スタッフ向け：受付（チェックイン）":
                         # ステータスを更新
                         df_reservations.at[idx, 'ステータス'] = "来店済み"
                         
+                        # 小数点が付いてしまう問題への対策（3.0 -> 3）
+                        try:
+                            seat_display = int(float(seat))
+                        except:
+                            seat_display = seat
+                        
                         # Googleスプレッドシートを更新
                         conn.update(worksheet="予約リスト", data=df_reservations)
                         
-                        st.success(f"受付完了：{name}様 ➡️ {seat}番席へご案内してください")
+                        st.success(f"受付完了：{name}様 ➡️ {seat_display}番席へご案内してください")
                         
             except Exception as e:
                 st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
