@@ -206,3 +206,29 @@ elif page == "スタッフ向け：受付（チェックイン）":
                         
             except Exception as e:
                 st.error(f"データベースの読み込みに失敗しました。設定を確認してください。エラー詳細: {e}")
+
+    # --- データリセット機能（管理者専用） ---
+    st.markdown("---")
+    with st.expander("⚠️ データリセット（管理者専用）", expanded=False):
+        st.warning("スプレッドシートの予約データをすべて消去して初期状態に戻します。")
+        reset_pass = st.text_input("管理者パスワードを入力してください", type="password")
+        
+        # 簡易的なパスワード設定（例として9999）
+        if reset_pass == "9999":
+            if st.button("全データを本当にリセットする", type="primary"):
+                try:
+                    conn, df_seats, df_reservations = get_data()
+                    
+                    # 座席状況の人数を0にする
+                    df_seats["現在の予約人数"] = 0
+                    
+                    # 予約リストを空にする（列名だけ残す）
+                    df_reservations = pd.DataFrame(columns=["予約ID", "お名前", "メールアドレス", "予約人数", "席番号", "ステータス"])
+                    
+                    # スプレッドシートを更新
+                    conn.update(worksheet="座席状況", data=df_seats)
+                    conn.update(worksheet="予約リスト", data=df_reservations)
+                    
+                    st.success("すべての予約データをリセットしました！")
+                except Exception as e:
+                    st.error(f"リセットに失敗しました: {e}")
