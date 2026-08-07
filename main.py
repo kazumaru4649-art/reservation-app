@@ -131,7 +131,7 @@ if target_event_id:
                         break
                 
                 if assigned_seat is None:
-                    st.error("満席エラー：現在ご案内できる空き座席がありません。")
+                    st.error("満席です人数を減らしてご登録お願いいたします")
                 else:
                     # 予約IDの生成
                     event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
