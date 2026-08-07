@@ -332,6 +332,16 @@ else:
                                 df_events.at[original_idx, "ステータス"] = "終了"
                                 conn.update(worksheet="Events", data=df_events)
                                 st.success("イベントを終了しました。再読み込みしてください。")
+                            
+                            st.write("---")
+                            if st.button(f"🗑️ このイベントを完全に削除する", key=f"del_{ev_id}", type="primary"):
+                                df_events = df_events[df_events['イベントID'] != ev_id]
+                                df_seats = df_seats[df_seats['イベントID'] != ev_id]
+                                df_reservations = df_reservations[df_reservations['イベントID'] != ev_id]
+                                conn.update(worksheet="Events", data=df_events)
+                                conn.update(worksheet="Seats", data=df_seats)
+                                conn.update(worksheet="Reservations", data=df_reservations)
+                                st.success("イベントとその座席・予約データを完全に削除しました。再読み込みしてください。")
                 else:
                     st.write("現在管理できる公開中イベントはありません。")
             except:
@@ -339,20 +349,29 @@ else:
 
         with tab2:
             st.subheader("新しいイベントの作成")
-            with st.form("new_event_form"):
-                new_ev_name = st.text_input("イベント名（例：7/18 ディナー営業）")
-                new_ev_date = st.text_input("日付（例：2024年7月18日）")
-                st.write("座席の準備（自動作成）")
-                st.caption("イベントごとのレイアウトに合わせて、座席数を自由に調整できます。")
-                num_shared = st.number_input("相席エリア（ソファ等）の最大定員（1グループで共有）", min_value=0, value=0, step=1)
-                num_1_seats = st.number_input("1名席の数", min_value=0, value=0, step=1)
-                num_2_seats = st.number_input("2名席の数", min_value=0, value=3, step=1)
-                num_4_seats = st.number_input("4名席の数", min_value=0, value=2, step=1)
-                num_6_seats = st.number_input("6名席の数", min_value=0, value=0, step=1)
-                
-                submitted_ev = st.form_submit_button("イベントを作成して公開する", type="primary")
-                
-                if submitted_ev:
+            new_ev_name = st.text_input("イベント名（例：7/18 ディナー営業）")
+            new_ev_date = st.text_input("日付（例：2024年7月18日）")
+            st.write("座席の準備（自動作成）")
+            st.caption("イベントごとのレイアウトに合わせて、座席数を自由に調整できます。")
+            num_shared = st.number_input("相席エリア（ソファ等）の最大定員（1グループで共有）", min_value=0, value=0, step=1)
+            num_1_seats = st.number_input("1名席の数", min_value=0, value=0, step=1)
+            num_2_seats = st.number_input("2名席の数", min_value=0, value=3, step=1)
+            num_4_seats = st.number_input("4名席の数", min_value=0, value=2, step=1)
+            num_6_seats = st.number_input("6名席の数", min_value=0, value=0, step=1)
+            
+            # --- 確認画面（プレビュー） ---
+            total_seats = num_shared + (num_1_seats * 1) + (num_2_seats * 2) + (num_4_seats * 4) + (num_6_seats * 6)
+            st.info(f"**【作成される座席のプレビュー】**\n\n"
+                    f"・相席エリア（定員{num_shared}名）: 1つ\n"
+                    f"・1名席: {num_1_seats}卓\n"
+                    f"・2名席: {num_2_seats}卓\n"
+                    f"・4名席: {num_4_seats}卓\n"
+                    f"・6名席: {num_6_seats}卓\n\n"
+                    f"**合計座席数（最大定員）: {total_seats}名**")
+            
+            submitted_ev = st.button("この内容でイベントを作成して公開する", type="primary")
+            
+            if submitted_ev:
                     if not new_ev_name:
                         st.error("イベント名を入力してください。")
                     else:
