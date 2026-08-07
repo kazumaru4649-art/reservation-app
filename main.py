@@ -42,12 +42,12 @@ def send_qr_email(to_email, name, seat, res_id, event_name, qr_bytes, num_people
         return False
 
 # --- データ取得機能 ---
-@st.cache_data(ttl=0)
+@st.cache_data(ttl=600)
 def get_data():
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df_events = conn.read(worksheet="Events", usecols=list(range(4)), ttl=0)
-    df_seats = conn.read(worksheet="Seats", usecols=list(range(4)), ttl=0)
-    df_reservations = conn.read(worksheet="Reservations", usecols=list(range(8)), ttl=0)
+    df_events = conn.read(worksheet="Events", usecols=list(range(4)))
+    df_seats = conn.read(worksheet="Seats", usecols=list(range(4)))
+    df_reservations = conn.read(worksheet="Reservations", usecols=list(range(8)))
     return conn, df_events.fillna(""), df_seats.fillna(""), df_reservations.fillna("")
 
 # ==========================================
@@ -154,6 +154,7 @@ if target_event_id:
                     # スプレッドシートを更新
                     conn.update(worksheet="Seats", data=df_seats)
                     conn.update(worksheet="Reservations", data=df_reservations)
+                    st.cache_data.clear()
                     
                     # QRコード生成
                     qr_data = f"EVENT:{target_event_id}_ID:{new_id}"
@@ -302,6 +303,7 @@ else:
                                     seat_display = seat
                                     
                                 conn.update(worksheet="Reservations", data=df_reservations)
+                                st.cache_data.clear()
                                 st.success(f"受付完了：{name}様 ➡️ {seat_display}番席へご案内してください")
                                 
                                 st.markdown("---")
@@ -382,6 +384,7 @@ else:
                             
                             conn.update(worksheet="Events", data=df_events)
                             conn.update(worksheet="Seats", data=df_seats)
+                            st.cache_data.clear()
                             
                             st.success("イベントを作成しました！下部の「現在公開中のイベント管理」から確認できます。")
                         except Exception as e:
@@ -403,6 +406,7 @@ else:
                                 original_idx = df_events.index[df_events['イベントID'] == ev_id][0]
                                 df_events.at[original_idx, "ステータス"] = "終了"
                                 conn.update(worksheet="Events", data=df_events)
+                                st.cache_data.clear()
                                 st.success("イベントを終了しました。再読み込みしてください。")
                             
                             st.write("---")
@@ -413,6 +417,7 @@ else:
                                 conn.update(worksheet="Events", data=df_events)
                                 conn.update(worksheet="Seats", data=df_seats)
                                 conn.update(worksheet="Reservations", data=df_reservations)
+                                st.cache_data.clear()
                                 st.success("イベントとその座席・予約データを完全に削除しました。再読み込みしてください。")
                 else:
                     st.write("現在管理できる公開中イベントはありません。")
