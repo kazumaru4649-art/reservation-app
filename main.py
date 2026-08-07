@@ -228,7 +228,7 @@ else:
 
     elif page == "スタッフ向け：管理・受付":
         st.title("イベント管理・受付ダッシュボード")
-        tab1, tab2 = st.tabs(["📸 チェックイン受付", "⚙️ 新規イベント作成"])
+        tab1, tab2 = st.tabs(["📸 チェックイン受付", "⚙️ イベント作成・管理"])
         
         with tab1:
             st.subheader("予約受付（チェックイン）")
@@ -315,38 +315,6 @@ else:
                     except Exception as e:
                         st.error(f"データベースの読み込みに失敗しました。エラー詳細: {e}")
 
-            st.markdown("---")
-            st.subheader("現在公開中のイベント管理")
-            try:
-                conn, df_events, df_seats, df_reservations = get_data()
-                active_events = df_events[df_events["ステータス"] == "受付中"]
-                if not active_events.empty:
-                    for _, ev in active_events.iterrows():
-                        ev_id = ev["イベントID"]
-                        with st.expander(f"⚙️ {ev['イベント名']} ({ev['開催日']}) の管理"):
-                            st.write(f"**専用予約URL**: `?event_id={ev_id}`")
-                            st.markdown(f'<a href="?event_id={ev_id}" target="_blank">専用予約画面を開く</a>', unsafe_allow_html=True)
-                            
-                            if st.button(f"このイベントを終了（アーカイブ）する", key=f"end_{ev_id}"):
-                                original_idx = df_events.index[df_events['イベントID'] == ev_id][0]
-                                df_events.at[original_idx, "ステータス"] = "終了"
-                                conn.update(worksheet="Events", data=df_events)
-                                st.success("イベントを終了しました。再読み込みしてください。")
-                            
-                            st.write("---")
-                            if st.button(f"🗑️ このイベントを完全に削除する", key=f"del_{ev_id}", type="primary"):
-                                df_events = df_events[df_events['イベントID'] != ev_id]
-                                df_seats = df_seats[df_seats['イベントID'] != ev_id]
-                                df_reservations = df_reservations[df_reservations['イベントID'] != ev_id]
-                                conn.update(worksheet="Events", data=df_events)
-                                conn.update(worksheet="Seats", data=df_seats)
-                                conn.update(worksheet="Reservations", data=df_reservations)
-                                st.success("イベントとその座席・予約データを完全に削除しました。再読み込みしてください。")
-                else:
-                    st.write("現在管理できる公開中イベントはありません。")
-            except:
-                pass
-
         with tab2:
             st.subheader("新しいイベントの作成")
             new_ev_name = st.text_input("イベント名（例：7/18 ディナー営業）")
@@ -415,6 +383,38 @@ else:
                             conn.update(worksheet="Events", data=df_events)
                             conn.update(worksheet="Seats", data=df_seats)
                             
-                            st.success(f"イベント「{new_ev_name}」を作成し、座席を自動配置して公開しました！")
+                            st.success("イベントを作成しました！下部の「現在公開中のイベント管理」から確認できます。")
                         except Exception as e:
-                            st.error(f"イベントの作成に失敗しました: {e}")
+                            st.error(f"作成中にエラーが発生しました: {e}")
+                            
+            st.markdown("---")
+            st.subheader("現在公開中のイベント管理")
+            try:
+                conn, df_events, df_seats, df_reservations = get_data()
+                active_events = df_events[df_events["ステータス"] == "受付中"]
+                if not active_events.empty:
+                    for _, ev in active_events.iterrows():
+                        ev_id = ev["イベントID"]
+                        with st.expander(f"⚙️ {ev['イベント名']} ({ev['開催日']}) の管理"):
+                            st.write(f"**専用予約URL**: `?event_id={ev_id}`")
+                            st.markdown(f'<a href="?event_id={ev_id}" target="_blank">専用予約画面を開く</a>', unsafe_allow_html=True)
+                            
+                            if st.button(f"このイベントを終了（アーカイブ）する", key=f"end_{ev_id}"):
+                                original_idx = df_events.index[df_events['イベントID'] == ev_id][0]
+                                df_events.at[original_idx, "ステータス"] = "終了"
+                                conn.update(worksheet="Events", data=df_events)
+                                st.success("イベントを終了しました。再読み込みしてください。")
+                            
+                            st.write("---")
+                            if st.button(f"🗑️ このイベントを完全に削除する", key=f"del_{ev_id}", type="primary"):
+                                df_events = df_events[df_events['イベントID'] != ev_id]
+                                df_seats = df_seats[df_seats['イベントID'] != ev_id]
+                                df_reservations = df_reservations[df_reservations['イベントID'] != ev_id]
+                                conn.update(worksheet="Events", data=df_events)
+                                conn.update(worksheet="Seats", data=df_seats)
+                                conn.update(worksheet="Reservations", data=df_reservations)
+                                st.success("イベントとその座席・予約データを完全に削除しました。再読み込みしてください。")
+                else:
+                    st.write("現在管理できる公開中イベントはありません。")
+            except:
+                pass
