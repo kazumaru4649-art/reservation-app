@@ -48,7 +48,7 @@ def get_data():
     df_events = conn.read(worksheet="Events", usecols=list(range(4)))
     df_seats = conn.read(worksheet="Seats", usecols=list(range(4)))
     df_reservations = conn.read(worksheet="Reservations", usecols=list(range(8)))
-    return conn, df_events.fillna(""), df_seats.fillna(""), df_reservations.fillna("")
+    return df_events.fillna(""), df_seats.fillna(""), df_reservations.fillna("")
 
 # ==========================================
 # URLパラメータの確認（専用URLからのアクセス判定）
@@ -61,7 +61,8 @@ if target_event_id:
     st.title("先行座席予約")
     
     try:
-        conn, df_events, df_seats, df_reservations = get_data()
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df_events, df_seats, df_reservations = get_data()
         
         # 該当イベントの情報を取得
         event_info = df_events[(df_events["イベントID"] == target_event_id) & (df_events["ステータス"] == "受付中")]
@@ -189,7 +190,8 @@ else:
         st.write("現在予約を受付中のイベント一覧です。ご希望のイベントを選択してください。")
         
         try:
-            conn, df_events, df_seats, df_reservations = get_data()
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            df_events, df_seats, df_reservations = get_data()
             active_events = df_events[df_events["ステータス"] == "受付中"]
             
             if active_events.empty:
@@ -263,7 +265,8 @@ else:
                     st.error("データが入力されていません。")
                 else:
                     try:
-                        conn, df_events, df_seats, df_reservations = get_data()
+                        conn = st.connection("gsheets", type=GSheetsConnection)
+                        df_events, df_seats, df_reservations = get_data()
                         
                         # QRデータ解析 "EVENT:xxx_ID:yyy"
                         qr_str = str(qr_input).strip()
@@ -346,7 +349,8 @@ else:
                         st.error("イベント名を入力してください。")
                     else:
                         try:
-                            conn, df_events, df_seats, df_reservations = get_data()
+                            conn = st.connection("gsheets", type=GSheetsConnection)
+                            df_events, df_seats, df_reservations = get_data()
                             new_ev_id = "EV_" + str(uuid.uuid4())[:8]
                             
                             # 新規イベント追加
@@ -393,7 +397,8 @@ else:
             st.markdown("---")
             st.subheader("現在公開中のイベント管理")
             try:
-                conn, df_events, df_seats, df_reservations = get_data()
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                df_events, df_seats, df_reservations = get_data()
                 active_events = df_events[df_events["ステータス"] == "受付中"]
                 if not active_events.empty:
                     for _, ev in active_events.iterrows():
