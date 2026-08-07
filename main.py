@@ -342,8 +342,12 @@ else:
                 new_ev_name = st.text_input("イベント名（例：7/18 ディナー営業）")
                 new_ev_date = st.text_input("日付（例：2024年7月18日）")
                 st.write("座席の準備（自動作成）")
-                num_2_seats = st.number_input("2名席の数", min_value=0, value=5, step=1)
+                st.caption("イベントごとのレイアウトに合わせて、座席数を自由に調整できます。")
+                num_shared = st.number_input("相席エリア（ソファ等）の最大定員（1グループで共有）", min_value=0, value=0, step=1)
+                num_1_seats = st.number_input("1名席の数", min_value=0, value=0, step=1)
+                num_2_seats = st.number_input("2名席の数", min_value=0, value=3, step=1)
                 num_4_seats = st.number_input("4名席の数", min_value=0, value=2, step=1)
+                num_6_seats = st.number_input("6名席の数", min_value=0, value=0, step=1)
                 
                 submitted_ev = st.form_submit_button("イベントを作成して公開する", type="primary")
                 
@@ -367,11 +371,22 @@ else:
                             # 新規座席追加
                             new_seats_list = []
                             seat_counter = 1
+                            
+                            # 相席エリア（1つの大きな席として扱う）
+                            if num_shared > 0:
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": "相席・ソファエリア", "最大定員": num_shared, "予約済人数": 0})
+                                
+                            for i in range(num_1_seats):
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": f"S{seat_counter} (1名席)", "最大定員": 1, "予約済人数": 0})
+                                seat_counter += 1
                             for i in range(num_2_seats):
-                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": str(seat_counter), "最大定員": 2, "予約済人数": 0})
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": f"T{seat_counter} (2名席)", "最大定員": 2, "予約済人数": 0})
                                 seat_counter += 1
                             for i in range(num_4_seats):
-                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": str(seat_counter), "最大定員": 4, "予約済人数": 0})
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": f"T{seat_counter} (4名席)", "最大定員": 4, "予約済人数": 0})
+                                seat_counter += 1
+                            for i in range(num_6_seats):
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": f"T{seat_counter} (6名席)", "最大定員": 6, "予約済人数": 0})
                                 seat_counter += 1
                                 
                             if new_seats_list:
