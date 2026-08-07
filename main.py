@@ -45,9 +45,9 @@ def send_qr_email(to_email, name, seat, res_id, event_name, qr_bytes, num_people
 @st.cache_data(ttl=0)
 def get_data():
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df_events = conn.read(worksheet="Events", usecols=list(range(4)))
-    df_seats = conn.read(worksheet="Seats", usecols=list(range(4)))
-    df_reservations = conn.read(worksheet="Reservations", usecols=list(range(8)))
+    df_events = conn.read(worksheet="Events", usecols=list(range(4)), ttl=0)
+    df_seats = conn.read(worksheet="Seats", usecols=list(range(4)), ttl=0)
+    df_reservations = conn.read(worksheet="Reservations", usecols=list(range(8)), ttl=0)
     return conn, df_events.fillna(""), df_seats.fillna(""), df_reservations.fillna("")
 
 # ==========================================
