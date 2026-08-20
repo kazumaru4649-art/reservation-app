@@ -172,7 +172,7 @@ if target_event_id:
                     send_qr_email(email, name, assigned_seat, new_id, event_name, byte_im, num_people, gender)
                     
                     seat_display = assigned_seat if "席" in str(assigned_seat) else f"{assigned_seat}番席"
-                    st.success(f"ご予約が確定しました！予約IDは {new_id} 番、割り当てられた席は {seat_display} です。")
+                    st.success(f"ご予約ありがとうございました！\n\nご予約が確定しました！予約IDは {new_id} 番、割り当てられた席は {seat_display} です。")
                     st.info("※ご登録いただいたメールアドレスにQRコードを送信しました。")
                     st.image(byte_im, caption="チェックイン用QRコード（スクリーンショットでも利用可能です）")
                     
