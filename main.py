@@ -108,7 +108,9 @@ if target_event_id:
                 st.write("")
                 st.write("")
                 st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
-                
+            st.markdown("---")
+            st.warning("⚠️ **入場料とは別で当日現金でのお支払いよろしくお願いします。**\n\n**当日キャンセル料の1000円は後日請求させていただきますのでよろしくお願いいたします。**")
+            
             submitted = st.form_submit_button("予約する", use_container_width=True)
 
         if submitted:
