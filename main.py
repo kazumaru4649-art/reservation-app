@@ -99,12 +99,13 @@ if target_event_id:
         with st.form("reservation_form"):
             name = st.text_input("お名前代表（ハンドルネーム可）")
             email = st.text_input("メールアドレス（もし来てないようでしたらもう一度ご確認お願いします）")
-            gender = st.radio("性別", ["男性", "女性", "回答しない"], horizontal=True)
-            
-            col1, col2 = st.columns([1, 1])
+            st.write("ご予約人数（最高は４名まで、それ以下でも相席になります）")
+            col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
-                num_people = st.number_input("ご予約人数（最高は４名まで、それ以上それ以下は相席になります）", min_value=1, max_value=4, value=1, step=1)
+                num_men = st.number_input("男性（名）", min_value=0, max_value=4, value=1, step=1)
             with col2:
+                num_women = st.number_input("女性（名）", min_value=0, max_value=4, value=0, step=1)
+            with col3:
                 st.write("")
                 st.write("")
                 st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
@@ -114,12 +115,18 @@ if target_event_id:
             submitted = st.form_submit_button("予約する", use_container_width=True)
 
         if submitted:
+            num_people = num_men + num_women
             if total_available <= 0:
                 st.error("申し訳ありません、このイベントは満席です。")
                 st.stop()
             if not name or not email:
                 st.error("お名前とメールアドレスを入力してください。")
+            elif num_people == 0:
+                st.error("人数を1名以上入力してください。")
+            elif num_people > 4:
+                st.error("ご予約人数は合計4名以下にしてください。")
             else:
+                gender = f"男{num_men} 女{num_women}"
                 assigned_seat = None
                 
                 # 相席ロジック：空き枠がある席を上から探す
