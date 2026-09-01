@@ -245,21 +245,30 @@ else:
         with tab1:
             st.subheader("予約受付（チェックイン）")
             
-            # --- カメラで自動読み取り ---
-            st.write("▼ カメラでQRコードをかざしてください（自動で受付されます）")
+            # --- カメラで写真撮影して読み取り ---
+            st.write("▼ カメラでQRコードを撮影してください（撮影後、自動で受付されます）")
             if st.checkbox("📸 カメラを起動する", value=True, key="camera_toggle"):
-                st.info("※「learn how to allow access」と出る場合は、ブラウザのURL横にある🔒マークからカメラを「許可」に変更してください。")
-                try:
-                    from streamlit_qrcode_scanner import qrcode_scanner
-                    qr_code = qrcode_scanner(key='qrcode_scanner_widget')
-                    
-                    if qr_code:
-                        if st.session_state.get("qr_input_field") != qr_code:
-                            st.session_state["qr_input_field"] = qr_code
-                            st.session_state["auto_submit"] = True
-                            st.rerun()
-                except Exception as e:
-                    pass
+                cam_image = st.camera_input("QRコードを枠に収めて撮影ボタンを押してください", label_visibility="collapsed")
+                if cam_image is not None:
+                    try:
+                        import cv2
+                        import numpy as np
+                        from PIL import Image
+                        image = Image.open(cam_image)
+                        img_array = np.array(image.convert('RGB'))
+                        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                        detector = cv2.QRCodeDetector()
+                        data, bbox, _ = detector.detectAndDecode(img_bgr)
+                        
+                        if data:
+                            if st.session_state.get("qr_input_field") != data:
+                                st.session_state["qr_input_field"] = data
+                                st.session_state["auto_submit"] = True
+                                st.rerun()
+                        else:
+                            st.error("❌ QRコードを認識できませんでした。もう少し近づけるか、ピントを合わせて再度撮影してください。")
+                    except Exception as e:
+                        st.error(f"読み取りエラーが発生しました: {e}")
 
             st.markdown("---")
             qr_input = st.text_input("手動検索用：QRデータまたは予約ID（例: EVENT:xxx_ID:1）を入力", key="qr_input_field")

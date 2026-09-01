@@ -1,6 +1,7 @@
-streamlit
+﻿streamlit
 pandas
 qrcode
 Pillow
 st-gsheets-connection
-streamlit-qrcode-scanner
+opencv-python-headless
+numpy
