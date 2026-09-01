@@ -226,14 +226,17 @@ if target_event_id:
             with col2:
                 if st.button("この内容で確認コードを送信する", type="primary", use_container_width=True):
                     import random
+                    import time
                     pin = str(random.randint(1000, 9999))
                     st.session_state.b_pin = pin
                     success = send_pin_email(d["email"], d["name"], event_name, pin)
                     if success:
+                        st.session_state.b_email_time = time.time()
                         st.session_state.booking_step = 3
                         st.rerun()
 
         elif st.session_state.booking_step == 3:
+            import time
             st.subheader("メールの確認")
             d = st.session_state.b_data
             st.success(f"{d['email']} 宛に4桁の確認コードを送信しました。")
@@ -304,6 +307,22 @@ if target_event_id:
                             st.rerun()
                     else:
                         st.error("確認コードが一致しません。もう一度メールをご確認ください。")
+            
+            st.markdown("---")
+            st.write("届いてないようでしたら メールアドレスの確認をもう一度お願いします")
+            if st.button("確認コードを再送信する"):
+                import time
+                import random
+                elapsed = time.time() - st.session_state.b_email_time
+                if elapsed < 60:
+                    st.error(f"前回の送信からまだ時間が経過していません。あと {int(60 - elapsed)}秒 お待ちください。")
+                else:
+                    pin = str(random.randint(1000, 9999))
+                    st.session_state.b_pin = pin
+                    success = send_pin_email(d["email"], d["name"], event_name, pin)
+                    if success:
+                        st.session_state.b_email_time = time.time()
+                        st.success("再送信しました！もう一度メールをご確認ください。")
 
         elif st.session_state.booking_step == 4:
             new_id = st.session_state.b_new_id
