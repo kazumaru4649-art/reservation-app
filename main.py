@@ -41,6 +41,29 @@ def send_qr_email(to_email, name, seat, res_id, event_name, qr_bytes, num_people
         st.error(f"メール送信に失敗しました: {e}")
         return False
 
+def send_pin_email(to_email, name, event_name, pin_code):
+    try:
+        if "email" not in st.secrets:
+            return False
+        sender_email = st.secrets["email"]["sender_email"]
+        app_password = st.secrets["email"]["app_password"]
+        
+        msg = MIMEMultipart()
+        msg['Subject'] = f'【先行座席予約】{event_name} 確認コードのお知らせ'
+        msg['From'] = sender_email
+        msg['To'] = to_email
+
+        body = f"{name} 様\n\nご予約手続きを進めていただきありがとうございます。\n\nご予約を確定するための4桁の確認コードは以下の通りです：\n\n【 {pin_code} 】\n\n予約画面に戻り、この確認コードを入力して予約を完了してください。\n\n※このメールは自動送信されています。"
+        msg.attach(MIMEText(body, 'plain'))
+        
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, app_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        st.error(f"確認メールの送信に失敗しました: {e}")
+        return False
+
 # --- データ取得機能 ---
 @st.cache_data(ttl=600)
 def get_data():
@@ -96,94 +119,193 @@ if target_event_id:
             status_text = "✖"
             status_color = "#6c757d"
             
-        with st.form("reservation_form"):
-            name = st.text_input("お名前代表（ハンドルネーム可）")
-            email = st.text_input("メールアドレス（もし来てないようでしたらもう一度ご確認お願いします）")
-            st.write("ご予約人数（最高は４名まで、それ以下でも相席になります）")
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                num_men = st.number_input("男性（名）", min_value=0, max_value=4, value=1, step=1)
-            with col2:
-                num_women = st.number_input("女性（名）", min_value=0, max_value=4, value=0, step=1)
-            with col3:
-                st.write("")
-                st.write("")
-                st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
-            st.markdown("---")
-            st.warning("⚠️ **入場料とは別で当日現金でのお支払いよろしくお願いします。**\n\n**当日キャンセル料の1000円は後日請求させていただきますのでよろしくお願いいたします。**")
-            
-            submitted = st.form_submit_button("予約する", use_container_width=True)
+        if "booking_step" not in st.session_state:
+            st.session_state.booking_step = 1
+            st.session_state.b_data = {}
+            st.session_state.b_pin = ""
 
-        if submitted:
-            num_people = num_men + num_women
-            if total_available <= 0:
-                st.error("申し訳ありません、このイベントは満席です。")
-                st.stop()
-            if not name or not email:
-                st.error("お名前とメールアドレスを入力してください。")
-            elif num_people == 0:
-                st.error("人数を1名以上入力してください。")
-            elif num_people > 4:
-                st.error("ご予約人数は合計4名以下にしてください。")
-            else:
-                gender = f"男{num_men} 女{num_women}"
-                assigned_seat = None
+        if st.session_state.booking_step == 1:
+            with st.form("reservation_form"):
+                name = st.text_input("お名前代表（ハンドルネーム可）", value=st.session_state.b_data.get("name", ""))
+                email = st.text_input("メールアドレス（もし来てないようでしたらもう一度ご確認お願いします）", value=st.session_state.b_data.get("email", ""))
+                st.write("ご予約人数（最高は４名まで、それ以下でも相席になります）")
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    num_men = st.number_input("男性（名）", min_value=0, max_value=4, value=st.session_state.b_data.get("num_men", 1), step=1)
+                with col2:
+                    num_women = st.number_input("女性（名）", min_value=0, max_value=4, value=st.session_state.b_data.get("num_women", 0), step=1)
+                with col3:
+                    st.write("")
+                    st.write("")
+                    st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
+                st.markdown("---")
+                st.warning("⚠️ **入場料とは別で当日現金でのお支払いよろしくお願いします。**\n\n**当日キャンセル料の1000円は後日請求させていただきますのでよろしくお願いいたします。**")
                 
-                # 相席ロジック：空き枠がある席を上から探す
-                for index, row in event_seats.iterrows():
-                    available_space = int(row["最大定員"]) - int(row["予約済人数"])
-                    if available_space >= num_people:
-                        assigned_seat = row["座席番号"]
-                        # 元のdf_seatsを更新する準備
-                        original_idx = event_seats.index[event_seats['座席番号'] == assigned_seat][0]
-                        df_seats.at[original_idx, "予約済人数"] = int(row["予約済人数"]) + num_people
-                        break
+                submitted = st.form_submit_button("確認画面へ進む", use_container_width=True)
+
+            if submitted:
+                num_people = num_men + num_women
                 
-                if assigned_seat is None:
-                    st.error("満席です人数を減らしてご登録お願いいたします")
+                # 重複チェック（同じイベント、同じ名前、同じメアド）
+                is_duplicate = False
+                if not df_reservations.empty:
+                    duplicates = df_reservations[
+                        (df_reservations["イベントID"] == target_event_id) & 
+                        (df_reservations["メールアドレス"] == email) & 
+                        (df_reservations["お名前"] == name)
+                    ]
+                    if not duplicates.empty:
+                        is_duplicate = True
+
+                if total_available <= 0:
+                    st.error("申し訳ありません、このイベントは満席です。")
+                elif not name or not email:
+                    st.error("お名前とメールアドレスを入力してください。")
+                elif num_people == 0:
+                    st.error("人数を1名以上入力してください。")
+                elif num_people > 4:
+                    st.error("ご予約人数は合計4名以下にしてください。")
+                elif is_duplicate:
+                    st.session_state.b_data = {
+                        "name": name,
+                        "email": email,
+                        "num_men": num_men,
+                        "num_women": num_women,
+                        "num_people": num_people,
+                        "gender": f"男{num_men} 女{num_women}"
+                    }
+                    st.session_state.booking_step = 1.5
+                    st.rerun()
                 else:
-                    # 予約IDの生成
-                    event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
-                    if len(event_res) > 0:
-                        new_id = int(pd.to_numeric(event_res['予約ID'], errors='coerce').fillna(0).max() + 1)
+                    st.session_state.b_data = {
+                        "name": name,
+                        "email": email,
+                        "num_men": num_men,
+                        "num_women": num_women,
+                        "num_people": num_people,
+                        "gender": f"男{num_men} 女{num_women}"
+                    }
+                    st.session_state.booking_step = 2
+                    st.rerun()
+
+        elif st.session_state.booking_step == 1.5:
+            st.warning("⚠️ 注意：同じお名前・同じメールアドレスですでにこのイベントの予約が登録されています。")
+            st.write("二重に予約されようとしていますが、よろしいですか？（例：ご友人・ご家族の分の追加予約など）")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("NO（やめる・戻る）", use_container_width=True):
+                    st.session_state.booking_step = 1
+                    st.rerun()
+            with col2:
+                if st.button("YES（追加で予約する）", type="primary", use_container_width=True):
+                    st.session_state.booking_step = 2
+                    st.rerun()
+
+        elif st.session_state.booking_step == 2:
+            st.subheader("予約内容の確認")
+            d = st.session_state.b_data
+            st.info(f"**お名前:** {d['name']} 様\n\n**メール:** {d['email']}\n\n**人数:** 男{d['num_men']}名 女{d['num_women']}名 （計{d['num_people']}名）")
+            st.write("### 男〇名、女〇名 以下の人数でお間違えありませんか？")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("戻って修正する", use_container_width=True):
+                    st.session_state.booking_step = 1
+                    st.rerun()
+            with col2:
+                if st.button("この内容で確認コードを送信する", type="primary", use_container_width=True):
+                    import random
+                    pin = str(random.randint(1000, 9999))
+                    st.session_state.b_pin = pin
+                    success = send_pin_email(d["email"], d["name"], event_name, pin)
+                    if success:
+                        st.session_state.booking_step = 3
+                        st.rerun()
+
+        elif st.session_state.booking_step == 3:
+            st.subheader("メールの確認")
+            d = st.session_state.b_data
+            st.success(f"{d['email']} 宛に4桁の確認コードを送信しました。")
+            
+            pin_input = st.text_input("メールに届いた4桁の数字を入力してください", max_chars=4)
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("最初に戻ってやり直す", use_container_width=True):
+                    st.session_state.booking_step = 1
+                    st.rerun()
+            with col2:
+                if st.button("予約を確定する", type="primary", use_container_width=True):
+                    if pin_input == st.session_state.b_pin:
+                        # 予約処理実行
+                        assigned_seat = None
+                        # 相席ロジック：空き枠がある席を上から探す
+                        for index, row in event_seats.iterrows():
+                            available_space = int(row["最大定員"]) - int(row["予約済人数"])
+                            if available_space >= d['num_people']:
+                                assigned_seat = row["座席番号"]
+                                original_idx = event_seats.index[event_seats['座席番号'] == assigned_seat][0]
+                                df_seats.at[original_idx, "予約済人数"] = int(row["予約済人数"]) + d['num_people']
+                                break
+                        
+                        if assigned_seat is None:
+                            st.error("申し訳ございません。手続き中に満席になってしまいました。人数を減らして再度お試しください。")
+                            st.session_state.booking_step = 1
+                        else:
+                            event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
+                            if len(event_res) > 0:
+                                new_id = int(pd.to_numeric(event_res['予約ID'], errors='coerce').fillna(0).max() + 1)
+                            else:
+                                new_id = 1
+                            
+                            new_res = pd.DataFrame([{
+                                "イベントID": target_event_id,
+                                "予約ID": new_id,
+                                "お名前": d['name'],
+                                "メールアドレス": d['email'],
+                                "人数": d['num_people'],
+                                "座席番号": assigned_seat,
+                                "ステータス": "未受付",
+                                "性別": d['gender']
+                            }])
+                            df_reservations = pd.concat([df_reservations, new_res], ignore_index=True)
+                            
+                            conn.update(worksheet="Seats", data=df_seats)
+                            conn.update(worksheet="Reservations", data=df_reservations)
+                            st.cache_data.clear()
+                            
+                            # QRコード生成
+                            qr_data = f"EVENT:{target_event_id}_ID:{new_id}"
+                            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                            qr.add_data(qr_data)
+                            qr.make(fit=True)
+                            img = qr.make_image(fill_color="black", back_color="white")
+                            
+                            buf = io.BytesIO()
+                            img.save(buf, format="PNG")
+                            byte_im = buf.getvalue()
+                            
+                            send_qr_email(d['email'], d['name'], assigned_seat, new_id, event_name, byte_im, d['num_people'], d['gender'])
+                            
+                            st.session_state.b_assigned_seat = assigned_seat
+                            st.session_state.b_new_id = new_id
+                            st.session_state.b_qr_bytes = byte_im
+                            st.session_state.booking_step = 4
+                            st.rerun()
                     else:
-                        new_id = 1
-                    
-                    new_res = pd.DataFrame([{
-                        "イベントID": target_event_id,
-                        "予約ID": new_id,
-                        "お名前": name,
-                        "メールアドレス": email,
-                        "人数": num_people,
-                        "座席番号": assigned_seat,
-                        "ステータス": "未受付",
-                        "性別": gender
-                    }])
-                    df_reservations = pd.concat([df_reservations, new_res], ignore_index=True)
-                    
-                    # スプレッドシートを更新
-                    conn.update(worksheet="Seats", data=df_seats)
-                    conn.update(worksheet="Reservations", data=df_reservations)
-                    st.cache_data.clear()
-                    
-                    # QRコード生成
-                    qr_data = f"EVENT:{target_event_id}_ID:{new_id}"
-                    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-                    qr.add_data(qr_data)
-                    qr.make(fit=True)
-                    img = qr.make_image(fill_color="black", back_color="white")
-                    
-                    buf = io.BytesIO()
-                    img.save(buf, format="PNG")
-                    byte_im = buf.getvalue()
-                    
-                    # メール送信
-                    send_qr_email(email, name, assigned_seat, new_id, event_name, byte_im, num_people, gender)
-                    
-                    seat_display = assigned_seat if "席" in str(assigned_seat) else f"{assigned_seat}番席"
-                    st.success(f"ご予約ありがとうございました！\n\nご予約が確定しました！予約IDは {new_id} 番、割り当てられた席は {seat_display} です。")
-                    st.info("※ご登録いただいたメールアドレスにQRコードを送信しました。")
-                    st.image(byte_im, caption="チェックイン用QRコード（スクリーンショットでも利用可能です）")
+                        st.error("確認コードが一致しません。もう一度メールをご確認ください。")
+
+        elif st.session_state.booking_step == 4:
+            new_id = st.session_state.b_new_id
+            assigned_seat = st.session_state.b_assigned_seat
+            byte_im = st.session_state.b_qr_bytes
+            seat_display = assigned_seat if "席" in str(assigned_seat) else f"{assigned_seat}番席"
+            st.success(f"ご予約ありがとうございました！\n\nご予約が確定しました！予約IDは {new_id} 番、割り当てられた席は {seat_display} です。")
+            st.info("※ご登録いただいたメールアドレスにQRコードを送信しました。")
+            st.image(byte_im, caption="チェックイン用QRコード（スクリーンショットでも利用可能です）")
+            if st.button("新しく別の予約をする"):
+                st.session_state.booking_step = 1
+                st.rerun()
                     
     except Exception as e:
         st.error(f"データベースの読み込みに失敗しました。エラー詳細: {e}")
@@ -246,29 +368,37 @@ else:
             st.subheader("予約受付（チェックイン）")
             
             # --- カメラで写真撮影して読み取り ---
-            st.write("▼ カメラでQRコードを撮影してください（撮影後、自動で受付されます）")
-            if st.checkbox("📸 カメラを起動する", value=True, key="camera_toggle"):
+            st.write("▼ カメラでQRコードを撮影するか、保存した画像をアップロードしてください")
+            
+            cam_mode = st.radio("読み取り方法を選択", ["📷 カメラで撮影する", "📁 画像ファイルを選択する"], horizontal=True)
+            
+            cam_image = None
+            if cam_mode == "📷 カメラで撮影する":
+                st.info("※カメラが真っ暗になる場合は、ブラウザの設定でカメラを「許可」にするか、右の「画像ファイルを選択する」をお試しください。")
                 cam_image = st.camera_input("QRコードを枠に収めて撮影ボタンを押してください", label_visibility="collapsed")
-                if cam_image is not None:
-                    try:
-                        import cv2
-                        import numpy as np
-                        from PIL import Image
-                        image = Image.open(cam_image)
-                        img_array = np.array(image.convert('RGB'))
-                        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-                        detector = cv2.QRCodeDetector()
-                        data, bbox, _ = detector.detectAndDecode(img_bgr)
-                        
-                        if data:
-                            if st.session_state.get("qr_input_field") != data:
-                                st.session_state["qr_input_field"] = data
-                                st.session_state["auto_submit"] = True
-                                st.rerun()
-                        else:
-                            st.error("❌ QRコードを認識できませんでした。もう少し近づけるか、ピントを合わせて再度撮影してください。")
-                    except Exception as e:
-                        st.error(f"読み取りエラーが発生しました: {e}")
+            else:
+                cam_image = st.file_uploader("QRコードの画像を選択してください", type=["png", "jpg", "jpeg"])
+                
+            if cam_image is not None:
+                try:
+                    import cv2
+                    import numpy as np
+                    from PIL import Image
+                    image = Image.open(cam_image)
+                    img_array = np.array(image.convert('RGB'))
+                    img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                    detector = cv2.QRCodeDetector()
+                    data, bbox, _ = detector.detectAndDecode(img_bgr)
+                    
+                    if data:
+                        if st.session_state.get("qr_input_field") != data:
+                            st.session_state["qr_input_field"] = data
+                            st.session_state["auto_submit"] = True
+                            st.rerun()
+                    else:
+                        st.error("❌ QRコードを認識できませんでした。もう少し近づけるか、ピントを合わせて再度撮影してください。")
+                except Exception as e:
+                    st.error(f"読み取りエラーが発生しました: {e}")
 
             st.markdown("---")
             qr_input = st.text_input("手動検索用：QRデータまたは予約ID（例: EVENT:xxx_ID:1）を入力", key="qr_input_field")
