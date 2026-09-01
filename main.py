@@ -157,8 +157,18 @@ if target_event_id:
                     if not duplicates.empty:
                         is_duplicate = True
 
+                # 座席の空きがあるかどうかのチェック
+                has_enough_seats = False
+                for index, row in event_seats.iterrows():
+                    available_space = int(row["最大定員"]) - int(row["予約済人数"])
+                    if available_space >= num_people:
+                        has_enough_seats = True
+                        break
+
                 if total_available <= 0:
                     st.error("申し訳ありません、このイベントは満席です。")
+                elif not has_enough_seats:
+                    st.error(f"申し訳ありません、現在 {num_people}名様 をご案内できる空き席がありません。人数を減らして再度お試しください。")
                 elif not name or not email:
                     st.error("お名前とメールアドレスを入力してください。")
                 elif num_people == 0:
@@ -206,7 +216,7 @@ if target_event_id:
             st.subheader("予約内容の確認")
             d = st.session_state.b_data
             st.info(f"**お名前:** {d['name']} 様\n\n**メール:** {d['email']}\n\n**人数:** 男{d['num_men']}名 女{d['num_women']}名 （計{d['num_people']}名）")
-            st.write("### 男〇名、女〇名 以下の人数でお間違えありませんか？")
+            st.write(f"### 男{d['num_men']}名、女{d['num_women']}名 以下の人数でお間違えありませんか？")
             
             col1, col2 = st.columns(2)
             with col1:
