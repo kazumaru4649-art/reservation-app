@@ -139,7 +139,7 @@ if target_event_id:
                     st.write("")
                     st.markdown(f"**空き状況：<span style='color:{status_color}; font-size:22px;'>{status_text}</span>**", unsafe_allow_html=True)
                 st.markdown("---")
-                st.warning("⚠️ **入場料とは別で当日現金でのお支払いよろしくお願いします。**\n\n**当日のキャンセル料は100％後日ご請求させていただきますのでよろしくお願いいたします。**\n\n**※お席は全て相席となります。あらかじめご了承ください。**")
+                st.warning("⚠️ **入場料とは別で当日現金でのお支払いよろしくお願いします。**\n\n**当日のキャンセル料は100％後日ご請求させていただきますのでよろしくお願いいたします。**\n\n**※お席は全て相席となります。あらかじめご了承ください。**\n\n**※ご予約後、ご登録いただいたメールアドレスへ確認のご連絡をさせていただく場合がございます。一定期間ご確認が取れない場合は、誠に勝手ながらご予約をキャンセル扱いとさせていただくことがございます。**")
                 
                 submitted = st.form_submit_button("確認画面へ進む", use_container_width=True)
 
@@ -152,7 +152,6 @@ if target_event_id:
                     duplicates = df_reservations[
                         (df_reservations["イベントID"] == target_event_id) & 
                         (df_reservations["メールアドレス"] == email) & 
-                        (df_reservations["お名前"] == name) &
                         (df_reservations["ステータス"] != "キャンセル")
                     ]
                     if not duplicates.empty:
@@ -190,7 +189,7 @@ if target_event_id:
                     st.rerun()
 
         elif st.session_state.booking_step == 1.5:
-            st.warning("⚠️ 注意：同じお名前・同じメールアドレスですでにこのイベントの予約が登録されています。")
+            st.warning("⚠️ 注意：このメールアドレスはすでにこのイベントの予約が登録されています。")
             st.write("二重に予約されようとしていますが、よろしいですか？（例：ご友人・ご家族の分の追加予約など）")
             
             col1, col2 = st.columns(2)
