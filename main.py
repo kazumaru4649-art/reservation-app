@@ -152,7 +152,8 @@ if target_event_id:
                     duplicates = df_reservations[
                         (df_reservations["イベントID"] == target_event_id) & 
                         (df_reservations["メールアドレス"] == email) & 
-                        (df_reservations["お名前"] == name)
+                        (df_reservations["お名前"] == name) &
+                        (df_reservations["ステータス"] != "キャンセル")
                     ]
                     if not duplicates.empty:
                         is_duplicate = True
@@ -446,6 +447,8 @@ else:
                             
                             if status == "来店済み":
                                 st.warning("⚠️ 既に受付済みのQRコード（お客様）です！")
+                            elif status == "キャンセル":
+                                st.error("❌ このQRコード（予約）は既にキャンセルされています！")
                             else:
                                 df_reservations.at[idx, 'ステータス'] = "来店済み"
                                 try:
@@ -593,9 +596,11 @@ else:
                     selected_ev_name = st.selectbox("1. イベントを選択してください", list(event_options.keys()))
                     selected_ev_id = event_options[selected_ev_name]
                     
-                    event_res = df_reservations[df_reservations["イベントID"] == selected_ev_id]
+                    # キャンセル済みのものは除外してリストアップ
+                    event_res = df_reservations[(df_reservations["イベントID"] == selected_ev_id) & (df_reservations["ステータス"] != "キャンセル")]
+                    
                     if event_res.empty:
-                        st.info("このイベントにはまだ予約がありません。")
+                        st.info("このイベントにはキャンセル可能な予約がありません。")
                     else:
                         st.write("---")
                         res_options = {}
@@ -610,10 +615,10 @@ else:
                         target_seat = target_res["座席番号"]
                         target_people = int(target_res["人数"])
                         
-                        st.warning(f"⚠️ 以下の予約を完全に削除し、{target_seat}の空き枠を {target_people}名分 復活させます。")
+                        st.warning(f"⚠️ 以下の予約をキャンセル扱いにし、{target_seat}の空き枠を {target_people}名分 復活させます。")
                         st.write(f"**{target_res['お名前']}様** （予約ID: {selected_res_id}）")
                         
-                        if st.button("🗑️ この予約を完全に削除する", type="primary"):
+                        if st.button("🗑️ この予約をキャンセルする", type="primary"):
                             seat_mask = (df_seats["イベントID"] == selected_ev_id) & (df_seats["座席番号"] == target_seat)
                             if seat_mask.any():
                                 seat_idx = df_seats.index[seat_mask][0]
@@ -623,8 +628,10 @@ else:
                                 conn.update(worksheet="Seats", data=df_seats)
                             
                             res_mask = (df_reservations["イベントID"] == selected_ev_id) & (df_reservations["予約ID"] == selected_res_id)
-                            df_reservations = df_reservations[~res_mask]
-                            conn.update(worksheet="Reservations", data=df_reservations)
+                            if res_mask.any():
+                                res_idx = df_reservations.index[res_mask][0]
+                                df_reservations.at[res_idx, "ステータス"] = "キャンセル"
+                                conn.update(worksheet="Reservations", data=df_reservations)
                             
                             st.cache_data.clear()
                             st.success("✅ キャンセル処理が完了し、座席枠が復活しました！再読み込み等を行ってください。")
