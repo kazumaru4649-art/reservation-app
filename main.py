@@ -131,7 +131,7 @@ if target_event_id:
                 st.write("ご予約人数（最高は４名まで、それ以下でも相席になります）")
                 col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
-                    num_men = st.number_input("男性（名）", min_value=0, max_value=4, value=st.session_state.b_data.get("num_men", 1), step=1)
+                    num_men = st.number_input("男性（名）", min_value=0, max_value=4, value=st.session_state.b_data.get("num_men", 0), step=1)
                 with col2:
                     num_women = st.number_input("女性（名）", min_value=0, max_value=4, value=st.session_state.b_data.get("num_women", 0), step=1)
                 with col3:
@@ -476,8 +476,8 @@ else:
             st.caption("イベントごとのレイアウトに合わせて、座席数を自由に調整できます。")
             num_shared = st.number_input("相席エリア（ソファ等）の最大定員（1グループで共有）", min_value=0, value=0, step=1)
             num_1_seats = st.number_input("1名席の数", min_value=0, value=0, step=1)
-            num_2_seats = st.number_input("2名席の数", min_value=0, value=3, step=1)
-            num_4_seats = st.number_input("4名席の数", min_value=0, value=2, step=1)
+            num_2_seats = st.number_input("2名席の数", min_value=0, value=0, step=1)
+            num_4_seats = st.number_input("4名席の数", min_value=0, value=0, step=1)
             num_6_seats = st.number_input("6名席の数", min_value=0, value=0, step=1)
             
             # --- 確認画面（プレビュー） ---
