@@ -362,7 +362,7 @@ else:
 
     elif page == "スタッフ向け：管理・受付":
         st.title("イベント管理・受付ダッシュボード")
-        tab1, tab2 = st.tabs(["📸 チェックイン受付", "⚙️ イベント作成・管理"])
+        tab1, tab2, tab3 = st.tabs(["📸 チェックイン受付", "⚙️ イベント作成・管理", "❌ 予約のキャンセル"])
         
         with tab1:
             st.subheader("予約受付（チェックイン）")
@@ -576,3 +576,57 @@ else:
                     st.write("現在管理できる公開中イベントはありません。")
             except:
                 pass
+
+        with tab3:
+            st.subheader("予約のキャンセル（座席の自動解放）")
+            st.write("キャンセルされた予約を削除し、他のお客さんが予約できるように空き枠を復活させます。")
+            
+            try:
+                conn = st.connection("gsheets", type=GSheetsConnection)
+                df_events, df_seats, df_reservations = get_data()
+                active_events = df_events[df_events["ステータス"] == "受付中"]
+                
+                if active_events.empty:
+                    st.info("現在受付中のイベントはありません。")
+                else:
+                    event_options = {f"{row['イベント名']} ({row['開催日']})": row['イベントID'] for _, row in active_events.iterrows()}
+                    selected_ev_name = st.selectbox("1. イベントを選択してください", list(event_options.keys()))
+                    selected_ev_id = event_options[selected_ev_name]
+                    
+                    event_res = df_reservations[df_reservations["イベントID"] == selected_ev_id]
+                    if event_res.empty:
+                        st.info("このイベントにはまだ予約がありません。")
+                    else:
+                        st.write("---")
+                        res_options = {}
+                        for _, row in event_res.iterrows():
+                            label = f"ID: {row['予約ID']} | {row['お名前']}様 | 計{row['人数']}名 | {row['座席番号']}"
+                            res_options[label] = row['予約ID']
+                            
+                        selected_res_label = st.selectbox("2. キャンセルする予約を選択してください", list(res_options.keys()))
+                        selected_res_id = res_options[selected_res_label]
+                        
+                        target_res = event_res[event_res["予約ID"] == selected_res_id].iloc[0]
+                        target_seat = target_res["座席番号"]
+                        target_people = int(target_res["人数"])
+                        
+                        st.warning(f"⚠️ 以下の予約を完全に削除し、{target_seat}の空き枠を {target_people}名分 復活させます。")
+                        st.write(f"**{target_res['お名前']}様** （予約ID: {selected_res_id}）")
+                        
+                        if st.button("🗑️ この予約を完全に削除する", type="primary"):
+                            seat_mask = (df_seats["イベントID"] == selected_ev_id) & (df_seats["座席番号"] == target_seat)
+                            if seat_mask.any():
+                                seat_idx = df_seats.index[seat_mask][0]
+                                current_booked = int(df_seats.at[seat_idx, "予約済人数"])
+                                new_booked = max(0, current_booked - target_people)
+                                df_seats.at[seat_idx, "予約済人数"] = new_booked
+                                conn.update(worksheet="Seats", data=df_seats)
+                            
+                            res_mask = (df_reservations["イベントID"] == selected_ev_id) & (df_reservations["予約ID"] == selected_res_id)
+                            df_reservations = df_reservations[~res_mask]
+                            conn.update(worksheet="Reservations", data=df_reservations)
+                            
+                            st.cache_data.clear()
+                            st.success("✅ キャンセル処理が完了し、座席枠が復活しました！再読み込み等を行ってください。")
+            except Exception as e:
+                st.error(f"エラーが発生しました: {e}")
