@@ -26,7 +26,7 @@ def send_qr_email(to_email, name, seat, res_id, event_name, qr_bytes, num_people
         msg['From'] = sender_email
         msg['To'] = to_email
 
-        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n・イベント：{event_name}\n・予約ID：{res_id}\n・お名前：{name} 様\n・性別：{gender}\n・人数：{num_people}名様\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約ID」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
+        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n・イベント：{event_name}\n・予約番号：{event_name}-{res_id}\n・お名前：{name} 様\n・性別：{gender}\n・人数：{num_people}名様\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約番号」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
         msg.attach(MIMEText(body, 'plain'))
         
         img = MIMEImage(qr_bytes)
@@ -329,7 +329,7 @@ if target_event_id:
             assigned_seat = st.session_state.b_assigned_seat
             byte_im = st.session_state.b_qr_bytes
             seat_display = assigned_seat if "席" in str(assigned_seat) else f"{assigned_seat}番席"
-            st.success(f"ご予約ありがとうございました！\n\nご予約が確定しました！予約IDは {new_id} 番、割り当てられた席は {seat_display} です。")
+            st.success(f"ご予約ありがとうございました！\n\nご予約が確定しました！予約番号は【 {event_name}-{new_id} 】、割り当てられた席は {seat_display} です。")
             st.info("※ご登録いただいたメールアドレスにQRコードを送信しました。")
             st.image(byte_im, caption="チェックイン用QRコード（スクリーンショットでも利用可能です）")
             if st.button("新しく別の予約をする"):
@@ -486,7 +486,9 @@ else:
                                     
                                 conn.update(worksheet="Reservations", data=df_reservations)
                                 st.cache_data.clear()
-                                st.success(f"受付完了：{name}様 ➡️ {seat_display}番席へご案内してください")
+                                ev_name_match = df_events[df_events['イベントID'] == ev_id]
+                                ev_name = ev_name_match['イベント名'].iloc[0] if not ev_name_match.empty else ev_id
+                                st.success(f"受付完了：{name}様 ( {ev_name} ) ➡️ {seat_display}番席へご案内してください")
                                 
                                 st.markdown("---")
                                 if st.button("🔄 次の人の受付を行う（画面をリセット）", use_container_width=True):
@@ -633,7 +635,7 @@ else:
                         st.write("---")
                         res_options = {}
                         for _, row in event_res.iterrows():
-                            label = f"ID: {row['予約ID']} | {row['お名前']}様 | 計{row['人数']}名 | {row['座席番号']}"
+                            label = f"予約番号: {selected_ev_name}-{row['予約ID']} | {row['お名前']}様 | 計{row['人数']}名 | {row['座席番号']}"
                             res_options[label] = row['予約ID']
                             
                         selected_res_label = st.selectbox("2. キャンセルする予約を選択してください", list(res_options.keys()))
@@ -644,7 +646,7 @@ else:
                         target_people = int(target_res["人数"])
                         
                         st.warning(f"⚠️ 以下の予約をキャンセル扱いにし、{target_seat}の空き枠を {target_people}名分 復活させます。")
-                        st.write(f"**{target_res['お名前']}様** （予約ID: {selected_res_id}）")
+                        st.write(f"**{target_res['お名前']}様** （予約番号: {selected_ev_name}-{selected_res_id}）")
                         
                         if st.button("🗑️ この予約をキャンセルする", type="primary"):
                             seat_mask = (df_seats["イベントID"] == selected_ev_id) & (df_seats["座席番号"] == target_seat)
