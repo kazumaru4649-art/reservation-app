@@ -224,15 +224,25 @@ if target_event_id:
                     st.session_state.booking_step = 1
                     st.rerun()
             with col2:
-                if st.button("この内容で確認コードを送信する", type="primary", use_container_width=True):
-                    import random
-                    import time
+                def disable_send_pin():
+                    st.session_state.pin_processing = True
+
+                st.button("この内容で確認コードを送信する", type="primary", use_container_width=True, disabled=st.session_state.get("pin_processing", False), on_click=disable_send_pin)
+                
+                if st.session_state.get("pin_processing", False):
+                    with st.spinner("✉️ 確認メールを送信中です... そのままお待ちください"):
+                        import random
+                        import time
                     pin = str(random.randint(1000, 9999))
                     st.session_state.b_pin = pin
                     success = send_pin_email(d["email"], d["name"], event_name, pin)
                     if success:
                         st.session_state.b_email_time = time.time()
                         st.session_state.booking_step = 3
+                        st.session_state.pin_processing = False
+                        st.rerun()
+                    else:
+                        st.session_state.pin_processing = False
                         st.rerun()
 
         elif st.session_state.booking_step == 3:
@@ -248,10 +258,16 @@ if target_event_id:
                     st.session_state.booking_step = 1
                     st.rerun()
             with col2:
-                if st.button("予約を確定する", type="primary", use_container_width=True):
-                    if pin_input == st.session_state.b_pin:
-                        # 予約処理実行
-                        assigned_seat = None
+                def disable_confirm():
+                    st.session_state.confirm_processing = True
+
+                st.button("予約を確定する", type="primary", use_container_width=True, disabled=st.session_state.get("confirm_processing", False), on_click=disable_confirm)
+                
+                if st.session_state.get("confirm_processing", False):
+                    with st.spinner("🔄 予約を確定しています... 画面が変わるまでそのままお待ちください"):
+                        if pin_input == st.session_state.b_pin:
+                            # 予約処理実行
+                            assigned_seat = None
                         # 相席ロジック：空き枠がある席を上から探す
                         for index, row in event_seats.iterrows():
                             available_space = int(row["最大定員"]) - int(row["予約済人数"])
@@ -264,6 +280,7 @@ if target_event_id:
                         if assigned_seat is None:
                             st.error("申し訳ございません。手続き中に満席になってしまいました。人数を減らして再度お試しください。")
                             st.session_state.booking_step = 1
+                            st.session_state.confirm_processing = False
                         else:
                             event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
                             if len(event_res) > 0:
@@ -304,9 +321,11 @@ if target_event_id:
                             st.session_state.b_new_id = new_id
                             st.session_state.b_qr_bytes = byte_im
                             st.session_state.booking_step = 4
+                            st.session_state.confirm_processing = False
                             st.rerun()
                     else:
                         st.error("確認コードが一致しません。もう一度メールをご確認ください。")
+                        st.session_state.confirm_processing = False
             
             st.markdown("---")
             st.write("届いてないようでしたら メールアドレスの確認をもう一度お願いします")
