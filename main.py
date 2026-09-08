@@ -224,40 +224,6 @@ if target_event_id:
                     st.session_state.booking_step = 1
                     st.rerun()
             with col2:
-                def disable_send_pin():
-                    st.session_state.pin_processing = True
-
-                st.button("この内容で確認コードを送信する", type="primary", use_container_width=True, disabled=st.session_state.get("pin_processing", False), on_click=disable_send_pin)
-                
-                if st.session_state.get("pin_processing", False):
-                    with st.spinner("✉️ 確認メールを送信中です... そのままお待ちください"):
-                        import random
-                        import time
-                    pin = str(random.randint(1000, 9999))
-                    st.session_state.b_pin = pin
-                    success = send_pin_email(d["email"], d["name"], event_name, pin)
-                    if success:
-                        st.session_state.b_email_time = time.time()
-                        st.session_state.booking_step = 3
-                        st.session_state.pin_processing = False
-                        st.rerun()
-                    else:
-                        st.session_state.pin_processing = False
-                        st.rerun()
-
-        elif st.session_state.booking_step == 3:
-            import time
-            st.subheader("メールの確認")
-            d = st.session_state.b_data
-            st.success(f"{d['email']} 宛に4桁の確認コードを送信しました。")
-            
-            pin_input = st.text_input("メールに届いた4桁の数字を入力してください", max_chars=4)
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("最初に戻ってやり直す", use_container_width=True):
-                    st.session_state.booking_step = 1
-                    st.rerun()
-            with col2:
                 def disable_confirm():
                     st.session_state.confirm_processing = True
 
@@ -265,83 +231,62 @@ if target_event_id:
                 
                 if st.session_state.get("confirm_processing", False):
                     with st.spinner("🔄 予約を確定しています... 画面が変わるまでそのままお待ちください"):
-                        if pin_input == st.session_state.b_pin:
-                            # 予約処理実行
-                            assigned_seat = None
-                            # 相席ロジック：空き枠がある席を上から探す
-                            for index, row in event_seats.iterrows():
-                                available_space = int(row["最大定員"]) - int(row["予約済人数"])
-                                if available_space >= d['num_people']:
-                                    assigned_seat = row["座席番号"]
-                                    original_idx = event_seats.index[event_seats['座席番号'] == assigned_seat][0]
-                                    df_seats.at[original_idx, "予約済人数"] = int(row["予約済人数"]) + d['num_people']
-                                    break
-                            
-                            if assigned_seat is None:
-                                st.error("申し訳ございません。手続き中に満席になってしまいました。人数を減らして再度お試しください。")
-                                st.session_state.booking_step = 1
-                                st.session_state.confirm_processing = False
-                            else:
-                                event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
-                                if len(event_res) > 0:
-                                    new_id = int(pd.to_numeric(event_res['予約ID'], errors='coerce').fillna(0).max() + 1)
-                                else:
-                                    new_id = 1
-                                
-                                new_res = pd.DataFrame([{
-                                    "イベントID": target_event_id,
-                                    "予約ID": new_id,
-                                    "お名前": d['name'],
-                                    "メールアドレス": d['email'],
-                                    "人数": d['num_people'],
-                                    "座席番号": assigned_seat,
-                                    "ステータス": "未受付",
-                                    "性別": d['gender']
-                                }])
-                                df_reservations = pd.concat([df_reservations, new_res], ignore_index=True)
-                                
-                                conn.update(worksheet="Seats", data=df_seats)
-                                conn.update(worksheet="Reservations", data=df_reservations)
-                                st.cache_data.clear()
-                                
-                                # QRコード生成
-                                qr_data = f"EVENT:{target_event_id}_ID:{new_id}"
-                                qr = qrcode.QRCode(version=1, box_size=10, border=5)
-                                qr.add_data(qr_data)
-                                qr.make(fit=True)
-                                img = qr.make_image(fill_color="black", back_color="white")
-                                
-                                buf = io.BytesIO()
-                                img.save(buf, format="PNG")
-                                byte_im = buf.getvalue()
-                                
-                                send_qr_email(d['email'], d['name'], assigned_seat, new_id, event_name, byte_im, d['num_people'], d['gender'])
-                                
-                                st.session_state.b_assigned_seat = assigned_seat
-                                st.session_state.b_new_id = new_id
-                                st.session_state.b_qr_bytes = byte_im
-                                st.session_state.booking_step = 4
-                                st.session_state.confirm_processing = False
-                                st.rerun()
-                        else:
-                            st.error("確認コードが一致しません。もう一度メールをご確認ください。")
+                        assigned_seat = None
+                        # 相席ロジック：空き枠がある席を上から探す
+                        for index, row in event_seats.iterrows():
+                            available_space = int(row["最大定員"]) - int(row["予約済人数"])
+                            if available_space >= d['num_people']:
+                                assigned_seat = row["座席番号"]
+                                original_idx = event_seats.index[event_seats['座席番号'] == assigned_seat][0]
+                                df_seats.at[original_idx, "予約済人数"] = int(row["予約済人数"]) + d['num_people']
+                                break
+                        
+                        if assigned_seat is None:
+                            st.error("申し訳ございません。手続き中に満席になってしまいました。人数を減らして再度お試しください。")
+                            st.session_state.booking_step = 1
                             st.session_state.confirm_processing = False
-            
-            st.markdown("---")
-            st.write("届いてないようでしたら メールアドレスの確認をもう一度お願いします")
-            if st.button("確認コードを再送信する"):
-                import time
-                import random
-                elapsed = time.time() - st.session_state.b_email_time
-                if elapsed < 60:
-                    st.error(f"前回の送信からまだ時間が経過していません。あと {int(60 - elapsed)}秒 お待ちください。")
-                else:
-                    pin = str(random.randint(1000, 9999))
-                    st.session_state.b_pin = pin
-                    success = send_pin_email(d["email"], d["name"], event_name, pin)
-                    if success:
-                        st.session_state.b_email_time = time.time()
-                        st.success("再送信しました！もう一度メールをご確認ください。")
+                        else:
+                            event_res = df_reservations[df_reservations["イベントID"] == target_event_id]
+                            if len(event_res) > 0:
+                                new_id = int(pd.to_numeric(event_res['予約ID'], errors='coerce').fillna(0).max() + 1)
+                            else:
+                                new_id = 1
+                            
+                            new_res = pd.DataFrame([{
+                                "イベントID": target_event_id,
+                                "予約ID": new_id,
+                                "お名前": d['name'],
+                                "メールアドレス": d['email'],
+                                "人数": d['num_people'],
+                                "座席番号": assigned_seat,
+                                "ステータス": "未受付",
+                                "性別": d['gender']
+                            }])
+                            df_reservations = pd.concat([df_reservations, new_res], ignore_index=True)
+                            
+                            conn.update(worksheet="Seats", data=df_seats)
+                            conn.update(worksheet="Reservations", data=df_reservations)
+                            st.cache_data.clear()
+                            
+                            # QRコード生成
+                            qr_data = f"EVENT:{target_event_id}_ID:{new_id}"
+                            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                            qr.add_data(qr_data)
+                            qr.make(fit=True)
+                            img = qr.make_image(fill_color="black", back_color="white")
+                            
+                            buf = io.BytesIO()
+                            img.save(buf, format="PNG")
+                            byte_im = buf.getvalue()
+                            
+                            send_qr_email(d['email'], d['name'], assigned_seat, new_id, event_name, byte_im, d['num_people'], d['gender'])
+                            
+                            st.session_state.b_assigned_seat = assigned_seat
+                            st.session_state.b_new_id = new_id
+                            st.session_state.b_qr_bytes = byte_im
+                            st.session_state.booking_step = 4
+                            st.session_state.confirm_processing = False
+                            st.rerun()
 
         elif st.session_state.booking_step == 4:
             new_id = st.session_state.b_new_id
