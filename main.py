@@ -361,13 +361,10 @@ else:
         
         # スタッフ認証システム
         if not st.session_state.get("staff_authenticated", False):
-            st.info("このページはスタッフ専用です。アクセスするにはパスワード認証が必要です。")
+            import time
+            import random
             
-            if st.button("管理者にワンタイムパスワードを送信する"):
-                import random
-                pin = str(random.randint(1000, 9999))
-                st.session_state.staff_pin = pin
-                
+            def send_staff_pin_email(new_pin):
                 try:
                     if "email" in st.secrets:
                         sender_email = st.secrets["email"]["sender_email"]
@@ -378,28 +375,67 @@ else:
                         msg['From'] = sender_email
                         msg['To'] = ADMIN_EMAIL
                         
-                        body = f"スタッフ画面へログインするためのワンタイムパスワードです。\n\n【 パスワード: {pin} 】\n\nこのパスワードの有効期限は画面を閉じるまでです。"
+                        body = f"スタッフ画面へログインするためのワンタイムパスワードです。\n\n【 パスワード: {new_pin} 】\n\nこのパスワードの有効期限は画面を閉じるまでです。"
                         msg.attach(MIMEText(body, 'plain'))
                         
                         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                             server.login(sender_email, app_password)
                             server.send_message(msg)
-                        
-                        st.success(f"管理者 ({ADMIN_EMAIL}) 宛にパスワードを送信しました！")
-                        st.session_state.staff_pin_sent = True
-                    else:
-                        st.error("メール設定が見つかりません。")
+                        return True
                 except Exception as e:
-                    st.error("パスワードの送信に失敗しました。")
+                    return False
+                return False
+
+            st.info("このページはスタッフ専用です。アクセスするにはパスワード認証が必要です。")
+            
+            if st.button("管理者にワンタイムパスワードを送信する"):
+                pin = str(random.randint(1000, 9999))
+                st.session_state.staff_pin = pin
+                st.session_state.staff_pin_failures = 0
+                
+                if send_staff_pin_email(pin):
+                    st.success(f"管理者 ({ADMIN_EMAIL}) 宛にパスワードを送信しました！")
+                    st.session_state.staff_pin_sent = True
+                else:
+                    st.error("パスワードの送信に失敗しました。メール設定を確認してください。")
             
             if st.session_state.get("staff_pin_sent", False):
-                entered_pin = st.text_input("メールに届いた4桁のパスワードを入力してください", type="password", max_chars=4)
-                if st.button("ログイン"):
+                # Lockout check
+                lockout_time = st.session_state.get("staff_lockout_time", 0)
+                current_time = time.time()
+                is_locked = False
+                
+                if current_time < lockout_time:
+                    remaining = int(lockout_time - current_time)
+                    st.error(f"セキュリティのため入力がロックされています。あと {remaining} 秒お待ちください。")
+                    if st.button("🔄 画面を更新して確認する"):
+                        st.rerun()
+                    is_locked = True
+                
+                entered_pin = st.text_input("メールに届いた4桁のパスワードを入力してください", type="password", max_chars=4, disabled=is_locked)
+                
+                if st.button("ログイン", disabled=is_locked):
                     if entered_pin == st.session_state.get("staff_pin"):
                         st.session_state.staff_authenticated = True
+                        st.session_state.staff_pin_failures = 0
                         st.rerun()
                     else:
-                        st.error("パスワードが間違っています。")
+                        failures = st.session_state.get("staff_pin_failures", 0) + 1
+                        st.session_state.staff_pin_failures = failures
+                        
+                        if failures >= 3:
+                            st.session_state.staff_lockout_time = time.time() + 60
+                            st.session_state.staff_pin_failures = 0
+                            
+                            # Auto-send new PIN
+                            new_pin = str(random.randint(1000, 9999))
+                            st.session_state.staff_pin = new_pin
+                            send_staff_pin_email(new_pin)
+                            
+                            st.error("3回連続で間違えたため、1分間入力がロックされました。新しいパスワードをメールに送信しましたので、1分後に入力してください。")
+                            st.rerun()
+                        else:
+                            st.error(f"パスワードが間違っています。（あと {3 - failures} 回間違えるとロックされます）")
             
             st.stop()
             
