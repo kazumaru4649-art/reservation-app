@@ -394,7 +394,7 @@ else:
                 st.session_state.staff_pin_failures = 0
                 
                 if send_staff_pin_email(pin):
-                    st.success(f"管理者 ({ADMIN_EMAIL}) 宛にパスワードを送信しました！")
+                    st.success("管理人のメアドに送らせていただきました")
                     st.session_state.staff_pin_sent = True
                 else:
                     st.error("パスワードの送信に失敗しました。メール設定を確認してください。")
