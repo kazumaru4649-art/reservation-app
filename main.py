@@ -388,30 +388,29 @@ else:
 
             st.info("このページはスタッフ専用です。アクセスするにはパスワード認証が必要です。")
             
-            if st.button("管理者にワンタイムパスワードを送信する"):
-                pin = str(random.randint(1000, 9999))
-                st.session_state.staff_pin = pin
-                st.session_state.staff_pin_failures = 0
-                
-                if send_staff_pin_email(pin):
-                    st.success("管理人のメアドに送らせていただきました")
-                    st.session_state.staff_pin_sent = True
-                else:
-                    st.error("パスワードの送信に失敗しました。メール設定を確認してください。")
+            # Lockout check
+            lockout_time = st.session_state.get("staff_lockout_time", 0)
+            current_time = time.time()
+            is_locked = False
+            
+            if current_time < lockout_time:
+                is_locked = True
+                remaining = int(lockout_time - current_time)
+                st.error(f"セキュリティのため入力がロックされています。あと {remaining} 秒お待ちください。")
+            
+            if not is_locked:
+                if st.button("管理者にワンタイムパスワードを送信する"):
+                    pin = str(random.randint(1000, 9999))
+                    st.session_state.staff_pin = pin
+                    st.session_state.staff_pin_failures = 0
+                    
+                    if send_staff_pin_email(pin):
+                        st.success("管理人のメアドに送らせていただきました")
+                        st.session_state.staff_pin_sent = True
+                    else:
+                        st.error("パスワードの送信に失敗しました。メール設定を確認してください。")
             
             if st.session_state.get("staff_pin_sent", False):
-                # Lockout check
-                lockout_time = st.session_state.get("staff_lockout_time", 0)
-                current_time = time.time()
-                is_locked = False
-                
-                if current_time < lockout_time:
-                    remaining = int(lockout_time - current_time)
-                    st.error(f"セキュリティのため入力がロックされています。あと {remaining} 秒お待ちください。")
-                    if st.button("🔄 画面を更新して確認する"):
-                        st.rerun()
-                    is_locked = True
-                
                 entered_pin = st.text_input("メールに届いた4桁のパスワードを入力してください", type="password", max_chars=4, disabled=is_locked)
                 
                 if st.button("ログイン", disabled=is_locked):
@@ -436,6 +435,10 @@ else:
                             st.rerun()
                         else:
                             st.error(f"パスワードが間違っています。（あと {3 - failures} 回間違えるとロックされます）")
+            
+            if is_locked:
+                time.sleep(1)
+                st.rerun()
             
             st.stop()
             
