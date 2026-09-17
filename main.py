@@ -29,7 +29,9 @@ def send_qr_email(to_email, name, seat, res_id, event_name, qr_bytes, num_people
         msg['From'] = sender_email
         msg['To'] = to_email
 
-        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n■ 対象イベント：{event_name}\n■ 予約番号：{res_id} 番\n・お名前：{name} 様\n・性別：{gender}\n・人数：{num_people}名様\n・お席：{seat}番席\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約番号」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
+        seat_str = str(seat)
+        seat_display = seat_str if "席" in seat_str or "エリア" in seat_str else f"{seat_str}番席"
+        body = f"{name} 様\n\nご予約ありがとうございます。\n\n【ご予約内容】\n■ 対象イベント：{event_name}\n■ 予約番号：{res_id} 番\n・お名前：{name} 様\n・性別：{gender}\n・人数：{num_people}名様\n・お席：{seat_display}\n\n当日は添付のQRコードを受付にてご提示いただくか、スタッフに「予約番号」をお伝えください。\nご来店を心よりお待ちしております。\n\n※このメールは自動送信されています。"
         msg.attach(MIMEText(body, 'plain'))
         
         img = MIMEImage(qr_bytes)
@@ -600,7 +602,7 @@ else:
                             
                             # 相席エリア（1つの大きな席として扱う）
                             if num_shared > 0:
-                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": "相席・ソファエリア", "最大定員": num_shared, "予約済人数": 0})
+                                new_seats_list.append({"イベントID": new_ev_id, "座席番号": "相席", "最大定員": num_shared, "予約済人数": 0})
                                 
                             for i in range(num_1_seats):
                                 new_seats_list.append({"イベントID": new_ev_id, "座席番号": f"S{seat_counter} (1名席)", "最大定員": 1, "予約済人数": 0})
@@ -653,7 +655,7 @@ else:
                             
                             # 座席（相席エリア）の人数変更
                             ev_seats = df_seats[df_seats['イベントID'] == ev_id]
-                            shared_seat = ev_seats[ev_seats["座席番号"] == "相席・ソファエリア"]
+                            shared_seat = ev_seats[ev_seats["座席番号"].isin(["相席", "相席・ソファエリア"])]
                             edit_cap = None
                             if not shared_seat.empty:
                                 curr_cap = int(float(shared_seat.iloc[0]["最大定員"]))
@@ -728,7 +730,13 @@ else:
                         st.write(f"**{target_res['お名前']}様** （予約番号: {selected_res_id} 番）")
                         
                         if st.button("🗑️ この予約をキャンセルする", type="primary"):
-                            seat_mask = (df_seats["イベントID"] == selected_ev_id) & (df_seats["座席番号"] == target_seat)
+                            search_seats = [target_seat]
+                            if target_seat == "相席・ソファエリア":
+                                search_seats.append("相席")
+                            elif target_seat == "相席":
+                                search_seats.append("相席・ソファエリア")
+                                
+                            seat_mask = (df_seats["イベントID"] == selected_ev_id) & (df_seats["座席番号"].isin(search_seats))
                             if seat_mask.any():
                                 seat_idx = df_seats.index[seat_mask][0]
                                 current_booked = int(df_seats.at[seat_idx, "予約済人数"])
