@@ -647,6 +647,34 @@ else:
                                 st.success("イベントを終了しました。再読み込みしてください。")
                             
                             st.write("---")
+                            st.write("▼ イベント情報の修正")
+                            edit_name = st.text_input("イベント名", value=ev["イベント名"], key=f"edit_name_{ev_id}")
+                            edit_date = st.text_input("開催日", value=ev["開催日"], key=f"edit_date_{ev_id}")
+                            
+                            # 座席（相席エリア）の人数変更
+                            ev_seats = df_seats[df_seats['イベントID'] == ev_id]
+                            shared_seat = ev_seats[ev_seats["座席番号"] == "相席・ソファエリア"]
+                            edit_cap = None
+                            if not shared_seat.empty:
+                                curr_cap = int(float(shared_seat.iloc[0]["最大定員"]))
+                                edit_cap = st.number_input("相席エリアの定員（追加席を増やしたい場合はこの数字を大きくします）", min_value=0, value=curr_cap, step=1, key=f"edit_cap_{ev_id}")
+                            
+                            if st.button("💾 この内容で上書き保存する", key=f"update_{ev_id}"):
+                                original_idx = df_events.index[df_events['イベントID'] == ev_id][0]
+                                df_events.at[original_idx, "イベント名"] = edit_name
+                                df_events.at[original_idx, "開催日"] = edit_date
+                                conn.update(worksheet="Events", data=df_events)
+                                
+                                if edit_cap is not None:
+                                    seat_idx = shared_seat.index[0]
+                                    df_seats.at[seat_idx, "最大定員"] = edit_cap
+                                    conn.update(worksheet="Seats", data=df_seats)
+                                    
+                                st.cache_data.clear()
+                                st.success("イベント情報を更新しました！画面が切り替わります。")
+                                st.rerun()
+                            
+                            st.write("---")
                             if st.button(f"🗑️ このイベントを完全に削除する", key=f"del_{ev_id}", type="primary"):
                                 df_events = df_events[df_events['イベントID'] != ev_id]
                                 df_seats = df_seats[df_seats['イベントID'] != ev_id]
