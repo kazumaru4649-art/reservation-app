@@ -11,6 +11,9 @@ from streamlit_gsheets import GSheetsConnection
 import datetime
 import uuid
 
+# --- 管理者用設定 ---
+ADMIN_EMAIL = "kazumaru4649@gmail.com"
+
 st.set_page_config(page_title="先行座席予約", layout="centered")
 
 # --- メール送信機能 ---
@@ -355,6 +358,51 @@ else:
 
     elif page == "スタッフ向け：管理・受付":
         st.title("イベント管理・受付ダッシュボード")
+        
+        # スタッフ認証システム
+        if not st.session_state.get("staff_authenticated", False):
+            st.info("このページはスタッフ専用です。アクセスするにはパスワード認証が必要です。")
+            
+            if st.button("管理者にワンタイムパスワードを送信する"):
+                import random
+                pin = str(random.randint(1000, 9999))
+                st.session_state.staff_pin = pin
+                
+                try:
+                    if "email" in st.secrets:
+                        sender_email = st.secrets["email"]["sender_email"]
+                        app_password = st.secrets["email"]["app_password"]
+                        
+                        msg = MIMEMultipart()
+                        msg['Subject'] = "【予約システム】スタッフ画面のワンタイムパスワード"
+                        msg['From'] = sender_email
+                        msg['To'] = ADMIN_EMAIL
+                        
+                        body = f"スタッフ画面へログインするためのワンタイムパスワードです。\n\n【 パスワード: {pin} 】\n\nこのパスワードの有効期限は画面を閉じるまでです。"
+                        msg.attach(MIMEText(body, 'plain'))
+                        
+                        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                            server.login(sender_email, app_password)
+                            server.send_message(msg)
+                        
+                        st.success(f"管理者 ({ADMIN_EMAIL}) 宛にパスワードを送信しました！")
+                        st.session_state.staff_pin_sent = True
+                    else:
+                        st.error("メール設定が見つかりません。")
+                except Exception as e:
+                    st.error("パスワードの送信に失敗しました。")
+            
+            if st.session_state.get("staff_pin_sent", False):
+                entered_pin = st.text_input("メールに届いた4桁のパスワードを入力してください", type="password", max_chars=4)
+                if st.button("ログイン"):
+                    if entered_pin == st.session_state.get("staff_pin"):
+                        st.session_state.staff_authenticated = True
+                        st.rerun()
+                    else:
+                        st.error("パスワードが間違っています。")
+            
+            st.stop()
+            
         tab1, tab2, tab3 = st.tabs(["📸 チェックイン受付", "⚙️ イベント作成・管理", "❌ 予約のキャンセル"])
         
         with tab1:
